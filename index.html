@@ -22,64 +22,64 @@
     padding: 9px 18px; background: #2d3436; color: #fff;
     border: none; border-radius: 8px; cursor: pointer; font-size: 14px;
   }
-  .new-btn:hover { background: #444; }
+  .new-btn:hover { background: #495057; }
   .search {
     width: 100%; padding: 10px 14px; margin-bottom: 16px;
-    border: 1px solid #ddd; border-radius: 8px; font-size: 14px; outline: none;
-    background: #fff;
+    border: 1px solid #ddd; border-radius: 8px; outline: none;
+    background: #fff; font-size:14px;
   }
   .search:focus { border-color: #2d3436; }
   .note-card {
-    background: #fff; border: 1px solid #e5e5dd; border-radius: 10px;
-    padding: 14px 16px; margin-bottom: 10px; cursor: pointer;
-    display: flex; justify-content: space-between; align-items: center; gap: 10px;
+    background: #fff; border: 1px solid #e5e5dd; border-radius: 8px;
+    padding: 14px 16px; margin-bottom:10px; cursor: pointer;
+    display: flex; justify-content: space-between; align-items: center; gap:10px;
     transition: box-shadow .15s;
   }
-  .note-card:hover { box-shadow: 0 2px 10px rgba(0,0,0,.08); }
-  .note-card .info { min-width: 0; }
+  .note-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,.08); }
+  .note-card .info { min-width:0; }
   .note-card .title {
-    font-size: 15px; font-weight: bold; color: #2d3436;
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    font-size:15px; font-weight:bold; color:#2d3436;
+    white-space: nowrap; overflow:hidden; text-overflow:ellipsis;
   }
-  .note-card .date { font-size: 12px; color: #999; margin-top: 4px; }
+  .note-card .date { font-size:12px; color:#999; margin-top:4px; }
   .note-card .del {
-    flex: none; padding: 5px 12px; background: #e74c3c; color: #fff;
-    border: none; border-radius: 6px; cursor: pointer; font-size: 12px;
+    flex:none; padding:5px 12px; background:#e74c3c; color:#fff;
+    border:none; border-radius:6px; cursor:pointer; font-size:12px;
   }
-  .empty { text-align: center; color: #aaa; padding: 60px 0; }
+  .empty { text-align:center; color:#aaa; padding:60px 0; }
 
   .edit-toolbar {
-    display: flex; align-items: center; gap: 12px;
-    padding: 12px 20px; background: #fff; border-bottom: 1px solid #ddd;
-    position: sticky; top: 0;
+    display:flex; align-items:center; gap:12px;
+    padding:12px 20px; background:#fff; border-bottom:1px solid #ddd;
+    position:sticky; top:0;
   }
   .back-btn {
-    padding: 7px 16px; background: #f0f0ea; color: #2d3436;
-    border: none; border-radius: 8px; cursor: pointer; font-size: 14px;
+    padding:7px 16px; background:#f0f0ea; color:#2d3436;
+    border:none; border-radius:8px; cursor:pointer; font-size:14px;
   }
-  .back-btn:hover { background: #e2e2da; }
-  .save-status { flex: 1; font-size: 12px; color: #999; }
-  .char-count { font-size: 12px; color: #bbb; }
+  .back-btn:hover { background:#e2e2da; }
+  .save-status { flex:1; font-size:12px; color:#999; }
+  .char-count { font-size:12px; color:#bbb; }
   .del-btn {
-    padding: 7px 14px; background: #e74c3c; color: #fff;
-    border: none; border-radius: 8px; cursor: pointer; font-size: 13px;
+    padding:7px 14px; background:#e74c3c; color:#fff;
+    border:none; border-radius:8px; cursor:pointer; font-size:13px;
   }
-  .del-btn:hover { background: #c0392b; }
-  .edit-body { max-width: 760px; margin: 0 auto; padding: 24px 24px 60px; }
+  .del-btn:hover { background:#c0392b; }
+  .edit-body { max-width:760px; margin:0 auto; padding:24px 24px 60px; }
   .title-input {
-    width: 100%; border: none; outline: none; background: transparent;
-    font-size: 26px; font-weight: bold; color: #2d3436;
-    padding: 8px 0 12px; font-family: inherit;
-    border-bottom: 1px solid #e5e5dd;
+    width:100%; border:none; outline:none; background:transparent;
+    font-size:26px; font-weight:bold; color:#2d3436;
+    padding:8px 0 12px; font-family:inherit;
+    border-bottom:1px solid #e5e5dd;
   }
   .content-input {
-    width: 100%; border: none; outline: none; background: transparent;
-    resize: vertical; min-height: 55vh; padding: 16px 0;
-    font-size: 16px; line-height: 1.9; color: #333; font-family: inherit;
+    width:100%; border:none; outline:none; background:transparent;
+    resize:vertical; min-height:55vh; padding:16px 0;
+    font-size:16px; line-height:1.9; color:#333; font-family:inherit;
   }
 
   .modal-wrap {
-    position: fixed; inset:0; background:rgba(0,0,0,0.4); display:flex; align-items:center; justify-content:center;
+    position:fixed; inset:0; background:rgba(0,0,0,0.4); display:flex; align-items:center; justify-content:center;
     z-index:999;
   }
   .modal-box {
@@ -87,7 +87,9 @@
   }
   .modal-box h2 { margin-bottom:16px; font-size:20px; color:#2d3436; }
   .tab-bar { display:flex; gap:4px; margin-bottom:12px; }
-  .tab-btn { flex:1; padding:8px; border:1px solid #ddd; background:#f8f8f8; border-radius:6px; cursor:pointer; }
+  .tab-btn {
+    flex:1; padding:8px; border:1px solid #ddd; background:#f8f8f8; border-radius:6px; cursor:pointer;
+  }
   .tab-btn.active { background:#2d3436; color:#fff; border-color:#2d3436; }
   .modal-box input {
     width:100%; padding:10px 12px; margin:8px 0; border:1px solid #ddd; border-radius:8px; outline:none;
@@ -119,7 +121,7 @@
     <div id="panelPhone" style="display:none;">
       <input id="phoneInput" placeholder="手机号（11位国内号码）" type="tel">
       <input id="phonePwdInput" placeholder="密码（至少6位）" type="password">
-      <button class="btn-primary" onclick="signUpPhone()">手机号注册（无需验证码）</button>
+      <button class="btn-primary" onclick="signUpPhone()">手机号注册</button>
       <button class="btn-primary" onclick="signInPhone()">手机号登录</button>
     </div>
     <button class="btn-secondary" onclick="localMode()">本地离线模式（仅保存在浏览器，无需网络）</button>
@@ -167,10 +169,9 @@ const LOCAL_KEY = 'notepad_local_notes';
 const SUPABASE_URL = "https://ywzyufuhiqolshvarjkm.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl3enl1ZnVoaXFvbHNodmFyamttIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA3NzU0OTAsImV4cCI6MjEwNjM1MTQ5MH0.akN_AyhpBLIGOCjt7yf0FWSBWl_VwsuLxNfkZIIpidQ";
 
-// 加载supabase脚本，返回Promise
+// 动态加载Supabase SDK
 function loadSupabaseSDK() {
   return new Promise((resolve, reject) => {
-    // 已经加载过直接返回
     if(window.supabase) return resolve(window.supabase);
     const script = document.createElement('script');
     script.src = "https://unpkg.com/@supabase/supabase-js@2";
@@ -180,7 +181,7 @@ function loadSupabaseSDK() {
   })
 }
 
-// 切换标签
+// 切换登录Tab
 function switchTab(btnEl, type){
   const tabBtns = document.querySelectorAll('.tab-btn');
   tabBtns.forEach(b=>b.classList.remove('active'));
@@ -194,7 +195,7 @@ function switchTab(btnEl, type){
   }
 }
 
-// 本地离线模式【完全独立，不需要SDK，页面一打开就能点】
+// 本地离线模式【完全不需要Supabase】
 function localMode() {
   isLocalMode = true;
   document.getElementById('loginModal').style.display = 'none';
@@ -205,7 +206,7 @@ function localMode() {
     notes = [{
       id: Date.now(),
       title: '欢迎使用记事本',
-      content: '✅ 本地模式：笔记保存在浏览器本地\n✅ 清除浏览器缓存会丢失笔记\n✅ 切换云端登录开启在线同步',
+      content: '✅ 本地模式：笔记保存在浏览器本地\n✅ 清除浏览器缓存会丢失笔记\n✅ 登录云端账号开启在线同步',
       updated_at: new Date().toISOString()
     }];
     saveLocal();
@@ -221,14 +222,14 @@ function getCurrentNote() {
   return notes.find(n => n.id === currentId);
 }
 
-function fmtTime(timeStr) {
+function formatTime(timeStr) {
   const d = new Date(timeStr);
-  return d.toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+  return `${d.getMonth()+1}月${d.getDate()}日 ${d.getHours()}:${String(d.getMinutes()).padStart(2,'0')}`;
 }
 
-function showPage(id) {
+function showPage(pageId) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-  document.getElementById(id).classList.add('active');
+  document.getElementById(pageId).classList.add('active');
   window.scrollTo(0,0);
 }
 
@@ -249,9 +250,9 @@ function renderList() {
     div.innerHTML = `
       <div class="info">
         <div class="title">${note.title || '无标题'}</div>
-        <div class="date">${fmtTime(note.updated_at)}</div>
+        <div class="date">${formatTime(note.updated_at)}</div>
       </div>
-      <button class="del" onclick="event.stopPropagation(); deleteNoteById(${note.id})">删除</button>
+      <button class="del" onclick="event.stopPropagation(); deleteNote(${note.id})">删除</button>
     `;
     container.appendChild(div);
   })
@@ -262,41 +263,37 @@ async function openNote(id) {
   const n = getCurrentNote();
   document.getElementById('titleInput').value = n.title;
   document.getElementById('contentInput').value = n.content;
-  document.getElementById('saveStatus').textContent = '已保存 ' + fmtTime(n.updated_at);
+  document.getElementById('saveStatus').textContent = '已保存 ' + formatTime(n.updated_at);
   updateCharCount();
   showPage('pageEdit');
 }
 
 async function newNote() {
+  const newNoteObj = {
+    id: Date.now(),
+    title: '',
+    content: '',
+    updated_at: new Date().toISOString()
+  };
+  notes.unshift(newNoteObj);
   if(isLocalMode){
-    const newNoteObj = {
-      id: Date.now(),
-      title: '',
-      content: '',
-      updated_at: new Date().toISOString()
-    };
-    notes.unshift(newNoteObj);
     saveLocal();
-    renderList();
-    openNote(newNoteObj.id);
-    return;
+  }else{
+    if(!supabase) return alert("云端未就绪");
+    const {data,error} = await supabase.from('notes').insert({
+      id: newNoteObj.id, title:'', content:'', user_id: user.id
+    }).select().single();
+    if(error){
+      alert('新建笔记失败：'+error.message);
+      return;
+    }
   }
-  if(!supabase){
-    alert("云端SDK加载失败/未就绪，可直接使用本地离线模式");
-    return;
-  }
-  const {data,error} = await supabase.from('notes').insert({
-    title:'',
-    content:'',
-    user_id: user.id
-  }).select().single();
-  if(error){
-    alert('新建笔记失败：'+error.message);
-    return;
-  }
-  notes.unshift(data);
-  renderList();
-  openNote(data.id);
+  currentId = newNoteObj.id;
+  document.getElementById('titleInput').value = '';
+  document.getElementById('contentInput').value = '';
+  document.getElementById('saveStatus').textContent = '';
+  updateCharCount();
+  showPage('pageEdit');
 }
 
 async function backToList() {
@@ -307,7 +304,7 @@ async function backToList() {
   showPage('pageList');
 }
 
-async function deleteNoteById(id) {
+async function deleteNote(id) {
   if(!confirm('确定删除这条笔记？')) return;
   notes = notes.filter(n=>n.id !== id);
   if(isLocalMode) {
@@ -323,13 +320,13 @@ async function deleteNoteById(id) {
 async function deleteCurrentNote() {
   if(!currentId) return;
   if(!confirm('确定删除当前笔记？')) return;
-  await deleteNoteById(currentId);
+  await deleteNote(currentId);
   backToList();
 }
 
 function updateCharCount() {
-  const len = document.getElementById('contentInput').value.length;
-  document.getElementById('charCount').textContent = len + ' 字';
+  const content = document.getElementById('contentInput').value;
+  document.getElementById('charCount').textContent = `${content.length} 字`;
 }
 
 async function saveNoteNow() {
@@ -337,27 +334,23 @@ async function saveNoteNow() {
   if(!n) return;
   const title = document.getElementById('titleInput').value.trim();
   const content = document.getElementById('contentInput').value;
+  n.title = title;
+  n.content = content;
+  n.updated_at = new Date().toISOString();
   if(isLocalMode) {
-    n.title = title;
-    n.content = content;
-    n.updated_at = new Date().toISOString();
     saveLocal();
-    document.getElementById('saveStatus').textContent = '已保存 ' + fmtTime(n.updated_at);
-    updateCharCount();
+    document.getElementById('saveStatus').textContent = '已保存 ' + formatTime(n.updated_at);
     return;
   }
   if(!supabase) return;
-  const {data,error} = await supabase.from('notes')
-    .update({title, content})
-    .eq('id',n.id)
-    .select().single();
+  const {error} = await supabase.from('notes')
+    .update({title, content, updated_at:n.updated_at})
+    .eq('id',n.id);
   if(error) {
     alert('云端保存失败：' + error.message);
     return;
   }
-  Object.assign(n, data);
-  document.getElementById('saveStatus').textContent = '已保存 ' + fmtTime(n.updated_at);
-  updateCharCount();
+  document.getElementById('saveStatus').textContent = '已保存 ' + formatTime(n.updated_at);
 }
 
 function scheduleAutoSave() {
@@ -385,10 +378,10 @@ async function signUpEmail() {
   }
   const { data, error } = await supabase.auth.signUp({email, password});
   if(error){
-    alert('注册失败：' + error.message);
+    alert('注册失败：'+error.message);
     return;
   }
-  alert('邮箱注册成功！直接登录即可');
+  alert('注册成功！请登录（如果开启邮箱验证，请先去邮箱确认）');
 }
 async function signInEmail() {
   if(!supabase){
@@ -407,11 +400,11 @@ async function signInEmail() {
     alert('登录失败：' + error.message);
     return;
   }
-  user = data.session.user;
+  user = data.user;
   await loginSuccess();
 }
 
-// 手机号注册登录
+// 手机号注册登录（用伪造邮箱）
 async function signUpPhone() {
   if(!supabase){
     try{
@@ -436,18 +429,14 @@ async function signUpPhone() {
   const fakeEmail = `${phone}@example.com`;
   const { data, error } = await supabase.auth.signUp({
     email: fakeEmail,
-    password,
-    options:{
-      data:{
-        phone: phone
-      }
-    }
+    password: password,
+    options:{ data:{ phone: phone } }
   });
   if(error){
     alert('手机号注册失败：' + error.message);
     return;
   }
-  alert('手机号注册成功！无需短信验证码。\n登录直接填入手机号+密码即可。');
+  alert('手机号账号注册成功！直接用手机号登录');
 }
 
 async function signInPhone() {
@@ -462,37 +451,21 @@ async function signInPhone() {
   }
   const phone = document.getElementById('phoneInput').value.trim();
   const password = document.getElementById('phonePwdInput').value;
-  const reg = /^1[3-9]\d{9}$/;
-  if(!reg.test(phone)){
-    alert('请输入合法11位手机号');
-    return;
-  }
-  if(password.length <6){
-    alert('密码至少6位');
-    return;
-  }
   const fakeEmail = `${phone}@example.com`;
-  const { data, error } = await supabase.auth.signInWithPassword({
-    email: fakeEmail,
-    password
-  });
+  const { data, error } = await supabase.auth.signInWithPassword({email:fakeEmail, password});
   if(error){
     alert('手机号登录失败：' + error.message);
     return;
   }
-  user = data.session.user;
+  user = data.user;
   await loginSuccess();
 }
 
 async function loginSuccess() {
   document.getElementById('loginModal').style.display = 'none';
-  const phoneMeta = user.user_metadata?.phone;
-  if(phoneMeta){
-    document.getElementById('userInfo').textContent = `手机号：${phoneMeta}`;
-  }else{
-    document.getElementById('userInfo').textContent = user.email;
-  }
+  document.getElementById('userInfo').textContent = user.email;
   document.getElementById('logoutBtn').hidden = false;
+  isLocalMode = false;
   await fetchCloudNotes();
   renderList();
 }
@@ -501,9 +474,10 @@ async function fetchCloudNotes() {
   const {data, error} = await supabase
     .from('notes')
     .select('*')
+    .eq('user_id', user.id)
     .order('updated_at', {ascending: false});
   if(error) {
-    alert('云端读取失败：' + error.message);
+    alert('读取云端笔记失败：' + error.message);
     return;
   }
   notes = data;
@@ -518,10 +492,16 @@ async function signOut() {
   document.getElementById('logoutBtn').hidden = true;
   document.getElementById('userInfo').textContent = '';
   document.getElementById('loginModal').style.display = 'flex';
+  renderList();
 }
 
+// 自动保存监听
 document.getElementById('titleInput').addEventListener('input', scheduleAutoSave);
-document.getElementById('contentInput').addEventListener('input', scheduleAutoSave);
+document.getElementById('contentInput').addEventListener('input', ()=>{
+  scheduleAutoSave();
+  updateCharCount();
+});
+updateCharCount();
 </script>
 </body>
 </html>
