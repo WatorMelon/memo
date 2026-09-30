@@ -123,7 +123,7 @@
       <button class="btn-primary" onclick="loadSupabaseAndSignInPhone()">手机号登录</button>
     </div>
     <button class="btn-secondary" onclick="localMode()">本地离线模式（仅保存在浏览器，无需网络）</button>
-    <div class="tip">本地模式不需要联网，笔记保存在当前浏览器。<br>手机号注册无需短信验证码，手机号保存在用户资料中。</div>
+    <div class="tip">⚠️云端注册登录必须用http://127.0.0.1:8000打开网页，不能直接双击html文件<br>本地模式不受此限制</div>
   </div>
 </div>
 
@@ -373,12 +373,14 @@ async function loadSupabaseAndSignUpEmail() {
     alert('邮箱不能为空，密码至少6位');
     return;
   }
-  const { error } = await supabase.auth.signUp({email, password});
+  const { data, error } = await supabase.auth.signUp({email, password});
   if(error){
     alert('注册失败：' + error.message);
+    console.log("注册详情",error);
     return;
   }
-  alert('邮箱注册成功！如开启邮箱验证，请打开邮箱激活账号。');
+  alert('邮箱注册成功！直接登录即可');
+  console.log("注册返回",data);
 }
 async function loadSupabaseAndSignInEmail() {
   await loadSupabaseSDK();
@@ -387,13 +389,14 @@ async function loadSupabaseAndSignInEmail() {
   const { data, error } = await supabase.auth.signInWithPassword({email, password});
   if(error){
     alert('登录失败：' + error.message);
+    console.log("登录错误",error);
     return;
   }
   user = data.session.user;
   await loginSuccess();
 }
 
-// ========== 手机号注册登录（无需短信验证码） ==========
+// ========== 手机号注册登录（无需短信验证码，修复域名） ==========
 async function loadSupabaseAndSignUpPhone() {
   await loadSupabaseSDK();
   const phone = document.getElementById('phoneInput').value.trim();
@@ -407,9 +410,9 @@ async function loadSupabaseAndSignUpPhone() {
     alert('密码至少6位');
     return;
   }
-  // 虚拟邮箱：手机号@fake.local
-  const fakeEmail = `${phone}@fake.local`;
-  const { error } = await supabase.auth.signUp({
+  // 修改：使用合法域名，不再用fake.local
+  const fakeEmail = `${phone}@test-account.myown-test.com`;
+  const { data, error } = await supabase.auth.signUp({
     email: fakeEmail,
     password,
     options:{
@@ -420,9 +423,11 @@ async function loadSupabaseAndSignUpPhone() {
   });
   if(error){
     alert('手机号注册失败：' + error.message);
+    console.log("手机号注册错误",error);
     return;
   }
   alert('手机号注册成功！无需短信验证码。\n登录直接填入手机号+密码即可。');
+  console.log("手机号注册返回",data);
 }
 
 async function loadSupabaseAndSignInPhone() {
@@ -438,13 +443,14 @@ async function loadSupabaseAndSignInPhone() {
     alert('密码至少6位');
     return;
   }
-  const fakeEmail = `${phone}@fake.local`;
+  const fakeEmail = `${phone}@test-account.myown-test.com`;
   const { data, error } = await supabase.auth.signInWithPassword({
     email: fakeEmail,
     password
   });
   if(error){
     alert('手机号登录失败：' + error.message);
+    console.log("手机号登录错误",error);
     return;
   }
   user = data.session.user;
