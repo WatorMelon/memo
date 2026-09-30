@@ -109,16 +109,16 @@
 <div id="loginModal" class="modal-wrap">
   <div class="modal-box">
     <h2>云记事本</h2>
-    <input id="phoneInput" placeholder="手机号" type="tel">
-    <input id="pwdInput" placeholder="密码" type="password">
+    <input id="phoneInput" placeholder="手机号（无需+86）" type="tel">
+    <input id="pwdInput" placeholder="密码（至少6位）" type="password">
     <div class="row">
-      <input id="codeInput" placeholder="验证码">
+      <input id="codeInput" placeholder="短信验证码">
       <button id="sendCodeBtn" class="btn-secondary">获取验证码</button>
     </div>
-    <button class="btn-primary" onclick="signUp()">注册账号</button>
-    <button class="btn-primary" onclick="signIn()">登录</button>
+    <button class="btn-primary" onclick="handleSignUp()">注册账号</button>
+    <button class="btn-primary" onclick="handleSignIn()">密码登录</button>
     <button class="btn-secondary" onclick="localMode()">本地离线模式（不云端同步）</button>
-    <div class="tip">注册需要短信验证码，登录后笔记自动云端保存，跨设备查看</div>
+    <div class="tip">注册需短信验证；登录后笔记自动云端保存，跨设备同步</div>
   </div>
 </div>
 
@@ -153,9 +153,9 @@
 </div>
 
 <script>
-// ========== 【替换为你自己的Supabase配置】 ==========
+// ========== 已配置好的 Supabase 信息 ==========
 const SUPABASE_URL = "https://ywzyufuhiqolshvarjkm.supabase.co";
-const SUPABASE_KEY = "PASTE_YOUR_ANON_KEY_HERE";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl3enl1ZnVoaXFvbHN2YXJqa20iLCJpYXQiOjE3OTA3NzU0OTAsImV4cCI6MjEwNjMxMTQ5MH0.akN_AyhpBLIGOCjt7yf0FWSBWl_VwsuLxNfkZIIpidQ";
 const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 let notes = [];
@@ -165,18 +165,31 @@ let user = null;
 let isLocalMode = false;
 const LOCAL_KEY = 'notepad2';
 
+// 工具：手机号自动补 +86
+function formatPhone(phone) {
+  phone = phone.trim().replace(/\s/g, '');
+  if (phone.startsWith('+')) return phone;
+  if (phone.startsWith('86')) return '+' + phone;
+  return '+86' + phone;
+}
+
 // 初始化：检查登录状态
 async function init() {
-  const { data } = await supabase.auth.getSession();
-  if(data.session) {
-    user = data.session.user;
-    await loginSuccess();
-  } else {
-    document.getElementById('loginModal').style.display = 'flex';
+  try {
+    const { data } = await supabase.auth.getSession();
+    if(data.session) {
+      user = data.session.user;
+      await loginSuccess();
+    } else {
+      document.getElementById('loginModal').style.display = 'flex';
+    }
+  } catch(e) {
+    console.error('初始化失败', e);
+    alert('初始化失败，请检查网络和 Supabase 配置');
   }
 }
 
-// 本地离线模式（原有逻辑）
+// 本地离线模式
 function localMode() {
   isLocalMode = true;
   document.getElementById('loginModal').style.display = 'none';
@@ -193,7 +206,7 @@ function localMode() {
   renderList();
 }
 
-// 云端登录成功
+// 登录成功回调
 async function loginSuccess() {
   document.getElementById('loginModal').style.display = 'none';
   document.getElementById('userInfo').textContent = user.phone;
@@ -209,42 +222,83 @@ async function fetchCloudNotes() {
     .select('*')
     .order('updated_at', {ascending: false});
   if(error) {
+    console.error('拉取笔记失败', error);
     alert('拉取笔记失败：' + error.message);
     return;
   }
   notes = data;
 }
 
-// 手机号注册
-async function signUp() {
-  const phone = document.getElementById('phoneInput').value.trim();
-  const password = document.getElementById('pwdInput').value.trim();
-  const code = document.getElementById('codeInput').value.trim();
-  const { data, error } = await supabase.auth.verifyOtp({
-    phone, token: code, type: 'sms', password
+// ========== 注册登录流程 ==========
+// 1. 点击「获取验证码」→ 触发注册，发送短信
+document.getElementById('sendCodeBtn').onclick = async () => {
+  const phone = formatPhone(document.getElementById('phoneInput').value);
+  const password = document.getElementById('pwdInput').value;
+  
+  if (!phone || password.length < 6) {
+    alert('请输入手机号和至少6位密码');
+    return;
+  }
+
+  const { error } = await supabase.auth.signUp({
+    phone: phone,
+    password: password
   });
-  if(error) return alert(error.message);
-  user = data.session.user;
-  await loginSuccess();
-}
 
-// 手机号登录
-async function signIn() {
-  const phone = document.getElementById('phoneInput').value.trim();
-  const password = document.getElementById('pwdInput').value.trim();
-  const { data, error } = await supabase.auth.signInWithPassword({phone, password});
-  if(error) return alert(error.message);
-  user = data.session.user;
-  await loginSuccess();
-}
-
-// 发送验证码
-document.getElementById('sendCodeBtn').onclick = async ()=>{
-  const phone = document.getElementById('phoneInput').value.trim();
-  const {error} = await supabase.auth.signInWithOtp({phone});
-  if(error) alert(error.message);
-  else alert("验证码已发送");
+  if (error) {
+    console.error('发送验证码失败', error);
+    alert('发送失败：' + error.message);
+    return;
+  }
+  alert('验证码已发送，请查收短信');
 };
+
+// 2. 点击「注册账号」→ 验证验证码，完成注册并登录
+async function handleSignUp() {
+  const phone = formatPhone(document.getElementById('phoneInput').value);
+  const code = document.getElementById('codeInput').value.trim();
+
+  if (!code) {
+    alert('请输入短信验证码');
+    return;
+  }
+
+  const { data, error } = await supabase.auth.verifyOtp({
+    phone: phone,
+    token: code,
+    type: 'sms'
+  });
+
+  if (error) {
+    console.error('注册验证失败', error);
+    alert('注册失败：' + error.message);
+    return;
+  }
+
+  user = data.session.user;
+  alert('注册成功！');
+  await loginSuccess();
+}
+
+// 密码登录
+async function handleSignIn() {
+  const phone = formatPhone(document.getElementById('phoneInput').value);
+  const password = document.getElementById('pwdInput').value;
+
+  const { data, error } = await supabase.auth.signInWithPassword({
+    phone: phone,
+    password: password
+  });
+
+  if (error) {
+    console.error('登录失败', error);
+    alert('登录失败：' + error.message);
+    return;
+  }
+
+  user = data.session.user;
+  await loginSuccess();
+}
 
 // 退出登录
 async function signOut() {
@@ -256,7 +310,7 @@ async function signOut() {
   document.getElementById('loginModal').style.display = 'flex';
 }
 
-// 本地保存函数
+// 本地保存
 function saveLocal() {
   localStorage.setItem(LOCAL_KEY, JSON.stringify(notes));
 }
@@ -264,17 +318,19 @@ function saveLocal() {
 function current() {
   return notes.find(n => n.id === currentId);
 }
+
 function fmtTime(timeStr) {
   const d = new Date(timeStr);
   return d.toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
+
 function showPage(id) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.getElementById(id).classList.add('active');
   window.scrollTo(0, 0);
 }
 
-/* ===== 列表页 ===== */
+/* ===== 列表页渲染 ===== */
 function renderList() {
   const keyword = document.getElementById('searchInput').value.trim();
   const list = notes.filter(n => (n.title + '\n' + n.content).includes(keyword));
@@ -320,7 +376,7 @@ async function newNote() {
     openNote(newId);
     return;
   }
-  // 云端新建，数据库自动生成ID
+  // 云端新建
   const insertData = {
     title: '',
     content: '',
@@ -328,6 +384,7 @@ async function newNote() {
   };
   const {data,error} = await supabase.from('notes').insert(insertData).select().single();
   if(error){
+    console.error('新建失败', error);
     alert('新建笔记失败：'+error.message);
     return;
   }
@@ -373,6 +430,7 @@ async function doSave() {
   if (!n) return;
   const title = document.getElementById('titleInput').value.trim();
   const content = document.getElementById('contentInput').value;
+
   if(isLocalMode){
     n.title = title;
     n.content = content;
@@ -382,10 +440,11 @@ async function doSave() {
     updateCount();
     return;
   }
-  // 云端更新，数据库触发器自动更新updated_at
+  // 云端更新
   const updateData = {title, content};
   const {data,error} = await supabase.from('notes').update(updateData).eq('id',n.id).select().single();
   if(error){
+    console.error('保存失败', error);
     alert('云端保存失败：'+error.message);
     return;
   }
