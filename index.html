@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>记事本</title>
+<title>云记事本</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -12,13 +12,12 @@
     background: #f5f5f0;
     min-height: 100vh;
   }
-  /* ===== 页面切换动画 ===== */
   .page { display: none; min-height: 100vh; animation: fadeIn .25s ease-out; }
   .page.active { display: block; }
   @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
-  /* ===== 列表页 ===== */
+
   .list-wrap { max-width: 640px; margin: 0 auto; padding: 32px 20px; }
-  .list-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+  .list-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap:wrap; gap:10px; }
   .list-header h1 { font-size: 22px; color: #2d3436; }
   .new-btn {
     padding: 9px 18px; background: #2d3436; color: #fff;
@@ -47,11 +46,9 @@
   .note-card .del {
     flex: none; padding: 5px 12px; background: #e74c3c; color: #fff;
     border: none; border-radius: 6px; cursor: pointer; font-size: 12px;
-    opacity: 0; transition: opacity .15s;
   }
-  .note-card:hover .del { opacity: 1; }
   .empty { text-align: center; color: #aaa; padding: 60px 0; }
-  /* ===== 编辑页（全屏） ===== */
+
   .edit-toolbar {
     display: flex; align-items: center; gap: 12px;
     padding: 12px 20px; background: #fff; border-bottom: 1px solid #ddd;
@@ -81,7 +78,7 @@
     resize: vertical; min-height: 55vh; padding: 16px 0;
     font-size: 16px; line-height: 1.9; color: #333; font-family: inherit;
   }
-  /* ===== 登录弹窗 ===== */
+
   .modal-wrap {
     position: fixed; inset:0; background:rgba(0,0,0,0.4); display:flex; align-items:center; justify-content:center;
     z-index:999;
@@ -93,36 +90,29 @@
   .modal-box input {
     width:100%; padding:10px 12px; margin:8px 0; border:1px solid #ddd; border-radius:8px; outline:none;
   }
-  .modal-box .row { display:flex; gap:8px; }
   .modal-box button {
     width:100%; padding:10px; margin-top:8px; border:none; border-radius:8px; cursor:pointer; font-size:14px;
   }
   .btn-primary { background:#2d3436; color:#fff; }
   .btn-secondary { background:#eee; color:#222; }
-  .tip { font-size:12px; color:#777; margin-top:8px; }
-  .user-bar { display:flex; gap:10px; align-items:center; }
+  .tip { font-size:12px; color:#777; margin-top:8px; line-height:1.5; }
+  .user-bar { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
   .logout-btn { padding:7px 12px; background:#eee; border:none; border-radius:6px; cursor:pointer; }
 </style>
 </head>
 <body>
-<!-- ========== 登录弹窗 ========== -->
 <div id="loginModal" class="modal-wrap">
   <div class="modal-box">
     <h2>云记事本</h2>
-    <input id="phoneInput" placeholder="手机号（无需+86）" type="tel">
+    <input id="emailInput" placeholder="邮箱地址" type="email">
     <input id="pwdInput" placeholder="密码（至少6位）" type="password">
-    <div class="row">
-      <input id="codeInput" placeholder="短信验证码">
-      <button id="sendCodeBtn" class="btn-secondary">获取验证码</button>
-    </div>
     <button class="btn-primary" onclick="handleSignUp()">注册账号</button>
-    <button class="btn-primary" onclick="handleSignIn()">密码登录</button>
-    <button class="btn-secondary" onclick="localMode()">本地离线模式（不云端同步）</button>
-    <div class="tip">注册需短信验证；登录后笔记自动云端保存，跨设备同步</div>
+    <button class="btn-primary" onclick="handleSignIn()">邮箱登录</button>
+    <button class="btn-secondary" onclick="localMode()">本地离线模式（仅保存在浏览器）</button>
+    <div class="tip">注册后需要前往邮箱，点击验证链接激活账号，才能登录。<br>可在Supabase后台关闭邮箱验证，注册直接登录。</div>
   </div>
 </div>
 
-<!-- ========== 页面一：列表页 ========== -->
 <div class="page active" id="pageList">
   <div class="list-wrap">
     <div class="list-header">
@@ -138,13 +128,13 @@
     <div class="empty" id="emptyTip" hidden>暂无笔记，点「新建笔记」开始 ✍️</div>
   </div>
 </div>
-<!-- ========== 页面二：编辑页（全屏） ========== -->
+
 <div class="page" id="pageEdit">
   <div class="edit-toolbar">
     <button class="back-btn" onclick="backToList()">← 返回</button>
     <span class="save-status" id="saveStatus"></span>
     <span class="char-count" id="charCount"></span>
-    <button class="del-btn" onclick="delNote()">删除</button>
+    <button class="del-btn" onclick="deleteCurrentNote()">删除</button>
   </div>
   <div class="edit-body">
     <input class="title-input" id="titleInput" placeholder="标题" maxlength="60">
@@ -153,7 +143,6 @@
 </div>
 
 <script>
-// ========== 已配置好的 Supabase 信息 ==========
 const SUPABASE_URL = "https://ywzyufuhiqolshvarjkm.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl3enl1ZnVoaXFvbHN2YXJqa20iLCJpYXQiOjE3OTA3NzU0OTAsImV4cCI6MjEwNjMxMTQ5MH0.akN_AyhpBLIGOCjt7yf0FWSBWl_VwsuLxNfkZIIpidQ";
 const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -163,29 +152,21 @@ let currentId = null;
 let saveTimer = null;
 let user = null;
 let isLocalMode = false;
-const LOCAL_KEY = 'notepad2';
+const LOCAL_KEY = 'notepad_local';
 
-// 工具：手机号自动补 +86
-function formatPhone(phone) {
-  phone = phone.trim().replace(/\s/g, '');
-  if (phone.startsWith('+')) return phone;
-  if (phone.startsWith('86')) return '+' + phone;
-  return '+86' + phone;
-}
-
-// 初始化：检查登录状态
+// 初始化
 async function init() {
   try {
-    const { data } = await supabase.auth.getSession();
-    if(data.session) {
-      user = data.session.user;
+    const { data: { session } } = await supabase.auth.getSession();
+    if(session) {
+      user = session.user;
       await loginSuccess();
     } else {
       document.getElementById('loginModal').style.display = 'flex';
     }
   } catch(e) {
-    console.error('初始化失败', e);
-    alert('初始化失败，请检查网络和 Supabase 配置');
+    console.error('初始化错误', e);
+    alert('网络异常，可选择本地离线模式');
   }
 }
 
@@ -193,29 +174,29 @@ async function init() {
 function localMode() {
   isLocalMode = true;
   document.getElementById('loginModal').style.display = 'none';
-  notes = JSON.parse(localStorage.getItem(LOCAL_KEY) || 'null');
-  if (!notes) {
+  const raw = localStorage.getItem(LOCAL_KEY);
+  if(raw) {
+    notes = JSON.parse(raw);
+  } else {
     notes = [{
       id: Date.now(),
       title: '欢迎使用记事本',
-      content: '· 本地模式：笔记只保存在本机浏览器\n· 切换登录开启云端同步',
-      updated: new Date().toISOString()
+      content: '✅ 本地模式：笔记保存在浏览器本地\n✅ 切换登录开启云端同步',
+      updated_at: new Date().toISOString()
     }];
     saveLocal();
   }
   renderList();
 }
 
-// 登录成功回调
 async function loginSuccess() {
   document.getElementById('loginModal').style.display = 'none';
-  document.getElementById('userInfo').textContent = user.phone;
+  document.getElementById('userInfo').textContent = user.email;
   document.getElementById('logoutBtn').hidden = false;
   await fetchCloudNotes();
   renderList();
 }
 
-// 获取云端笔记
 async function fetchCloudNotes() {
   const {data, error} = await supabase
     .from('notes')
@@ -223,79 +204,37 @@ async function fetchCloudNotes() {
     .order('updated_at', {ascending: false});
   if(error) {
     console.error('拉取笔记失败', error);
-    alert('拉取笔记失败：' + error.message);
+    alert('云端读取失败：' + error.message);
     return;
   }
   notes = data;
 }
 
-// ========== 注册登录流程 ==========
-// 1. 点击「获取验证码」→ 触发注册，发送短信
-document.getElementById('sendCodeBtn').onclick = async () => {
-  const phone = formatPhone(document.getElementById('phoneInput').value);
-  const password = document.getElementById('pwdInput').value;
-  
-  if (!phone || password.length < 6) {
-    alert('请输入手机号和至少6位密码');
-    return;
-  }
-
-  const { error } = await supabase.auth.signUp({
-    phone: phone,
-    password: password
-  });
-
-  if (error) {
-    console.error('发送验证码失败', error);
-    alert('发送失败：' + error.message);
-    return;
-  }
-  alert('验证码已发送，请查收短信');
-};
-
-// 2. 点击「注册账号」→ 验证验证码，完成注册并登录
+// 邮箱注册
 async function handleSignUp() {
-  const phone = formatPhone(document.getElementById('phoneInput').value);
-  const code = document.getElementById('codeInput').value.trim();
-
-  if (!code) {
-    alert('请输入短信验证码');
+  const email = document.getElementById('emailInput').value.trim();
+  const password = document.getElementById('pwdInput').value;
+  if(!email || password.length <6){
+    alert('邮箱不能为空，密码至少6位');
     return;
   }
-
-  const { data, error } = await supabase.auth.verifyOtp({
-    phone: phone,
-    token: code,
-    type: 'sms'
-  });
-
-  if (error) {
-    console.error('注册验证失败', error);
+  const { error } = await supabase.auth.signUp({email, password});
+  if(error){
     alert('注册失败：' + error.message);
     return;
   }
-
-  user = data.session.user;
-  alert('注册成功！');
-  await loginSuccess();
+  alert('注册成功！打开邮箱查收验证邮件，点击链接激活账号。');
 }
 
-// 密码登录
+// 邮箱登录
 async function handleSignIn() {
-  const phone = formatPhone(document.getElementById('phoneInput').value);
+  const email = document.getElementById('emailInput').value.trim();
   const password = document.getElementById('pwdInput').value;
-
-  const { data, error } = await supabase.auth.signInWithPassword({
-    phone: phone,
-    password: password
-  });
-
-  if (error) {
-    console.error('登录失败', error);
+  const { data, error } = await supabase.auth.signInWithPassword({email, password});
+  if(error){
     alert('登录失败：' + error.message);
     return;
   }
-
   user = data.session.user;
   await loginSuccess();
 }
@@ -305,17 +244,17 @@ async function signOut() {
   await supabase.auth.signOut();
   user = null;
   notes = [];
+  isLocalMode = false;
   document.getElementById('logoutBtn').hidden = true;
   document.getElementById('userInfo').textContent = '';
   document.getElementById('loginModal').style.display = 'flex';
 }
 
-// 本地保存
 function saveLocal() {
   localStorage.setItem(LOCAL_KEY, JSON.stringify(notes));
 }
 
-function current() {
+function getCurrentNote() {
   return notes.find(n => n.id === currentId);
 }
 
@@ -327,64 +266,67 @@ function fmtTime(timeStr) {
 function showPage(id) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.getElementById(id).classList.add('active');
-  window.scrollTo(0, 0);
+  window.scrollTo(0,0);
 }
 
-/* ===== 列表页渲染 ===== */
+// 渲染笔记列表
 function renderList() {
-  const keyword = document.getElementById('searchInput').value.trim();
-  const list = notes.filter(n => (n.title + '\n' + n.content).includes(keyword));
-  document.getElementById('emptyTip').hidden = list.length > 0;
-  document.getElementById('noteList').innerHTML = list.map(n => `
-    <div class="note-card" onclick="openNote(${n.id})">
-      <div class="info">
-        <div class="title"></div>
-        <div class="date">${fmtTime(n.updated_at || n.updated)}</div>
-      </div>
-      <button class="del" onclick="event.stopPropagation(); deleteNote(${n.id})">删除</button>
-    </div>
-  `).join('');
-  document.querySelectorAll('#noteList .title').forEach((el, i) => {
-    el.textContent = list[i].title || '（无标题）';
+  const kw = document.getElementById('searchInput').value.trim().toLowerCase();
+  const filtered = notes.filter(n => {
+    const text = (n.title + n.content).toLowerCase();
+    return text.includes(kw);
   });
+  document.getElementById('emptyTip').hidden = filtered.length > 0;
+  const container = document.getElementById('noteList');
+  container.innerHTML = '';
+  filtered.forEach(note => {
+    const div = document.createElement('div');
+    div.className = 'note-card';
+    div.onclick = () => openNote(note.id);
+    div.innerHTML = `
+      <div class="info">
+        <div class="title">${note.title || '无标题'}</div>
+        <div class="date">${fmtTime(note.updated_at)}</div>
+      </div>
+      <button class="del" onclick="event.stopPropagation(); deleteNoteById(${note.id})">删除</button>
+    `;
+    container.appendChild(div);
+  })
 }
 
-/* ===== 编辑页 ===== */
+// 打开笔记
 async function openNote(id) {
   currentId = id;
-  const n = current();
+  const n = getCurrentNote();
   document.getElementById('titleInput').value = n.title;
   document.getElementById('contentInput').value = n.content;
-  document.getElementById('saveStatus').textContent = '已保存 ' + fmtTime(n.updated_at || n.updated);
-  updateCount();
+  document.getElementById('saveStatus').textContent = '已保存 ' + fmtTime(n.updated_at);
+  updateCharCount();
   showPage('pageEdit');
-  setTimeout(() => document.getElementById('contentInput').focus(), 100);
 }
 
+// 新建笔记
 async function newNote() {
   if(isLocalMode){
-    const newId = Date.now();
-    const n = {
-      id: newId,
+    const newNoteObj = {
+      id: Date.now(),
       title: '',
       content: '',
-      updated: new Date().toISOString()
+      updated_at: new Date().toISOString()
     };
-    notes.unshift(n);
+    notes.unshift(newNoteObj);
     saveLocal();
     renderList();
-    openNote(newId);
+    openNote(newNoteObj.id);
     return;
   }
-  // 云端新建
-  const insertData = {
-    title: '',
-    content: '',
+  //云端新建
+  const {data,error} = await supabase.from('notes').insert({
+    title:'',
+    content:'',
     user_id: user.id
-  };
-  const {data,error} = await supabase.from('notes').insert(insertData).select().single();
+  }).select().single();
   if(error){
-    console.error('新建失败', error);
     alert('新建笔记失败：'+error.message);
     return;
   }
@@ -395,75 +337,72 @@ async function newNote() {
 
 async function backToList() {
   clearTimeout(saveTimer);
-  await doSave();
+  await saveNoteNow();
   currentId = null;
   renderList();
   showPage('pageList');
 }
 
-async function deleteNote(id) {
-  if (!confirm('确定删除这篇笔记吗？')) return;
-  notes = notes.filter(n => n.id !== id);
+async function deleteNoteById(id) {
+  if(!confirm('确定删除这条笔记？')) return;
+  notes = notes.filter(n=>n.id !== id);
   if(isLocalMode) {
     saveLocal();
   } else {
-    const {error} = await supabase.from('notes').delete().eq('id', id);
+    const {error} = await supabase.from('notes').delete().eq('id',id);
     if(error) alert('删除失败：'+error.message);
   }
   renderList();
 }
 
-async function delNote() {
-  if (notes.length <= 1) return alert('至少保留一篇笔记！');
-  if (!confirm('确定删除这篇笔记吗？')) return;
-  await deleteNote(currentId);
+async function deleteCurrentNote() {
+  if(!currentId) return;
+  if(!confirm('确定删除当前笔记？')) return;
+  await deleteNoteById(currentId);
   backToList();
 }
 
-function updateCount() {
-  document.getElementById('charCount').textContent =
-    document.getElementById('contentInput').value.length + ' 字';
+function updateCharCount() {
+  const len = document.getElementById('contentInput').value.length;
+  document.getElementById('charCount').textContent = len + ' 字';
 }
 
-async function doSave() {
-  const n = current();
-  if (!n) return;
+async function saveNoteNow() {
+  const n = getCurrentNote();
+  if(!n) return;
   const title = document.getElementById('titleInput').value.trim();
   const content = document.getElementById('contentInput').value;
-
-  if(isLocalMode){
+  if(isLocalMode) {
     n.title = title;
     n.content = content;
-    n.updated = new Date().toISOString();
+    n.updated_at = new Date().toISOString();
     saveLocal();
-    document.getElementById('saveStatus').textContent = '已保存 ' + fmtTime(n.updated);
-    updateCount();
+    document.getElementById('saveStatus').textContent = '已保存 ' + fmtTime(n.updated_at);
+    updateCharCount();
     return;
   }
-  // 云端更新
-  const updateData = {title, content};
-  const {data,error} = await supabase.from('notes').update(updateData).eq('id',n.id).select().single();
-  if(error){
-    console.error('保存失败', error);
-    alert('云端保存失败：'+error.message);
+  //云端更新
+  const {data,error} = await supabase.from('notes')
+    .update({title, content})
+    .eq('id',n.id)
+    .select().single();
+  if(error) {
+    alert('云端保存失败：' + error.message);
     return;
   }
   Object.assign(n, data);
   document.getElementById('saveStatus').textContent = '已保存 ' + fmtTime(n.updated_at);
-  updateCount();
+  updateCharCount();
 }
 
-function scheduleSave() {
+function scheduleAutoSave() {
   document.getElementById('saveStatus').textContent = '保存中…';
   clearTimeout(saveTimer);
-  saveTimer = setTimeout(doSave, 500);
+  saveTimer = setTimeout(saveNoteNow, 500);
 }
 
-document.getElementById('titleInput').addEventListener('input', scheduleSave);
-document.getElementById('contentInput').addEventListener('input', scheduleSave);
-document.getElementById('titleInput').addEventListener('keydown', e => {
-  if (e.key === 'Enter') { e.preventDefault(); document.getElementById('contentInput').focus(); }
-});
+document.getElementById('titleInput').addEventListener('input', scheduleAutoSave);
+document.getElementById('contentInput').addEventListener('input', scheduleAutoSave);
 
 // 启动
 init();
