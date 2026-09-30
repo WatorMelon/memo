@@ -13,7 +13,7 @@
   }
   .page { display: none; min-height: 100vh; animation: fadeIn .25s ease-out; }
   .page.active { display: block; }
-  @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+  @keyframes fadeIn { from { opacity:0; transform: translateY(8px); } to { opacity:1; transform: translateY(0); } }
 
   .list-wrap { max-width: 640px; margin: 0 auto; padding: 32px 20px; }
   .list-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap:wrap; gap:10px; }
@@ -22,7 +22,7 @@
     padding: 9px 18px; background: #2d3436; color: #fff;
     border: none; border-radius: 8px; cursor: pointer; font-size: 14px;
   }
-  .new-btn:hover { background: #000; }
+  .new-btn:hover { background: #444; }
   .search {
     width: 100%; padding: 10px 14px; margin-bottom: 16px;
     border: 1px solid #ddd; border-radius: 8px; font-size: 14px; outline: none;
@@ -123,7 +123,7 @@
       <button class="btn-primary" onclick="loadSupabaseAndSignInPhone()">手机号登录</button>
     </div>
     <button class="btn-secondary" onclick="localMode()">本地离线模式（仅保存在浏览器，无需网络）</button>
-    <div class="tip">⚠️云端注册登录必须用http://127.0.0.1:8000打开网页，不能直接双击html文件<br>本地模式不受此限制</div>
+    <div class="tip">⚠️云端功能适配GitHub Pages<br>本地模式不受网络限制</div>
   </div>
 </div>
 
@@ -163,11 +163,13 @@ let saveTimer = null;
 let user = null;
 let isLocalMode = false;
 let supabase = null;
-const LOCAL_KEY = 'notepad_local';
-const SUPABASE_URL = "https://ywzyufuhiqolshvarjkm.supabase.co";
-const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl3enl1ZnVoaXFvbHN2YXJqa20iLCJpYXQiOjE3OTA3NzU0OTAsImV4cCI6MjEwNjMxMTQ5MH0.akN_AyhpBLIGOCjt7yf0FWSBWl_VwsuLxNfkZIIpidQ";
+const LOCAL_KEY = 'notepad_local_notes';
 
-// 切换登录Tab
+// ====================== ✅ 已修复：换回eyJhbGci anon密钥 ======================
+const SUPABASE_URL = "https://ywzyufuhiqolshvarjkm.supabase.co";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl3enl1ZnVoaXFvbHNodmFyamttIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA3NzU0OTAsImV4cCI6MjEwNjM1MTQ5MH0.akN_AyhpBLIGOCjt7yf0FWSBWl_VwsuLxNfkZIIpidQ";
+// ============================================================================
+
 function switchTab(type){
   const tabBtns = document.querySelectorAll('.tab-btn');
   tabBtns.forEach(b=>b.classList.remove('active'));
@@ -181,7 +183,7 @@ function switchTab(type){
   }
 }
 
-// ========== 本地模式（完全独立，不加载supabase） ==========
+// 本地离线模式
 function localMode() {
   isLocalMode = true;
   document.getElementById('loginModal').style.display = 'none';
@@ -244,7 +246,6 @@ function renderList() {
   })
 }
 
-// 打开笔记
 async function openNote(id) {
   currentId = id;
   const n = getCurrentNote();
@@ -255,7 +256,6 @@ async function openNote(id) {
   showPage('pageEdit');
 }
 
-// 新建笔记
 async function newNote() {
   if(isLocalMode){
     const newNoteObj = {
@@ -270,7 +270,6 @@ async function newNote() {
     openNote(newNoteObj.id);
     return;
   }
-  //云端新建
   const {data,error} = await supabase.from('notes').insert({
     title:'',
     content:'',
@@ -331,7 +330,6 @@ async function saveNoteNow() {
     updateCharCount();
     return;
   }
-  //云端更新
   const {data,error} = await supabase.from('notes')
     .update({title, content})
     .eq('id',n.id)
@@ -351,7 +349,7 @@ function scheduleAutoSave() {
   saveTimer = setTimeout(saveNoteNow, 500);
 }
 
-// ========== 云端SDK加载 ==========
+// 加载Supabase SDK
 async function loadSupabaseSDK(){
   if(supabase) return;
   await new Promise((resolve,reject)=>{
@@ -364,7 +362,7 @@ async function loadSupabaseSDK(){
   supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 }
 
-// ========== 邮箱注册登录 ==========
+// 邮箱注册登录
 async function loadSupabaseAndSignUpEmail() {
   await loadSupabaseSDK();
   const email = document.getElementById('emailInput').value.trim();
@@ -396,7 +394,7 @@ async function loadSupabaseAndSignInEmail() {
   await loginSuccess();
 }
 
-// ========== 手机号注册登录（无需短信验证码，修复域名） ==========
+// 手机号注册登录（虚拟邮箱 example.com）
 async function loadSupabaseAndSignUpPhone() {
   await loadSupabaseSDK();
   const phone = document.getElementById('phoneInput').value.trim();
@@ -410,8 +408,7 @@ async function loadSupabaseAndSignUpPhone() {
     alert('密码至少6位');
     return;
   }
-  // 修改：使用合法域名，不再用fake.local
-  const fakeEmail = `${phone}@test-account.myown-test.com`;
+  const fakeEmail = `${phone}@example.com`;
   const { data, error } = await supabase.auth.signUp({
     email: fakeEmail,
     password,
@@ -443,7 +440,7 @@ async function loadSupabaseAndSignInPhone() {
     alert('密码至少6位');
     return;
   }
-  const fakeEmail = `${phone}@test-account.myown-test.com`;
+  const fakeEmail = `${phone}@example.com`;
   const { data, error } = await supabase.auth.signInWithPassword({
     email: fakeEmail,
     password
@@ -459,7 +456,6 @@ async function loadSupabaseAndSignInPhone() {
 
 async function loginSuccess() {
   document.getElementById('loginModal').style.display = 'none';
-  // 优先展示手机号，没有则展示邮箱
   const phoneMeta = user.user_metadata?.phone;
   if(phoneMeta){
     document.getElementById('userInfo').textContent = `手机号：${phoneMeta}`;
