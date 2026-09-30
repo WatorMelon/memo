@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>记事本</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: "Microsoft YaHei", sans-serif;
+    background: #f5f5f0;
+    min-height: 100vh;
+  }
+  /* ===== 页面切换动画 ===== */
+  .page { display: none; min-height: 100vh; animation: fadeIn .25s ease-out; }
+  .page.active { display: block; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+  /* ===== 列表页 ===== */
+  .list-wrap { max-width: 640px; margin: 0 auto; padding: 32px 20px; }
+  .list-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+  .list-header h1 { font-size: 22px; color: #2d3436; }
+  .new-btn {
+    padding: 9px 18px; background: #2d3436; color: #fff;
+    border: none; border-radius: 8px; cursor: pointer; font-size: 14px;
+  }
+  .new-btn:hover { background: #000; }
+  .search {
+    width: 100%; padding: 10px 14px; margin-bottom: 16px;
+    border: 1px solid #ddd; border-radius: 8px; font-size: 14px; outline: none;
+    background: #fff;
+  }
+  .search:focus { border-color: #2d3436; }
+  .note-card {
+    background: #fff; border: 1px solid #e5e5dd; border-radius: 10px;
+    padding: 14px 16px; margin-bottom: 10px; cursor: pointer;
+    display: flex; justify-content: space-between; align-items: center; gap: 10px;
+    transition: box-shadow .15s;
+  }
+  .note-card:hover { box-shadow: 0 2px 10px rgba(0,0,0,.08); }
+  .note-card .info { min-width: 0; }
+  .note-card .title {
+    font-size: 15px; font-weight: bold; color: #2d3436;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .note-card .date { font-size: 12px; color: #999; margin-top: 4px; }
+  .note-card .del {
+    flex: none; padding: 5px 12px; background: #e74c3c; color: #fff;
+    border: none; border-radius: 6px; cursor: pointer; font-size: 12px;
+    opacity: 0; transition: opacity .15s;
+  }
+  .note-card:hover .del { opacity: 1; }
+  .empty { text-align: center; color: #aaa; padding: 60px 0; }
+  /* ===== 编辑页（全屏） ===== */
+  .edit-toolbar {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 20px; background: #fff; border-bottom: 1px solid #ddd;
+    position: sticky; top: 0;
+  }
+  .back-btn {
+    padding: 7px 16px; background: #f0f0ea; color: #2d3436;
+    border: none; border-radius: 8px; cursor: pointer; font-size: 14px;
+  }
+  .back-btn:hover { background: #e2e2da; }
+  .save-status { flex: 1; font-size: 12px; color: #999; }
+  .char-count { font-size: 12px; color: #bbb; }
+  .del-btn {
+    padding: 7px 14px; background: #e74c3c; color: #fff;
+    border: none; border-radius: 8px; cursor: pointer; font-size: 13px;
+  }
+  .del-btn:hover { background: #c0392b; }
+  .edit-body { max-width: 760px; margin: 0 auto; padding: 24px 24px 60px; }
+  .title-input {
+    width: 100%; border: none; outline: none; background: transparent;
+    font-size: 26px; font-weight: bold; color: #2d3436;
+    padding: 8px 0 12px; font-family: inherit;
+    border-bottom: 1px solid #e5e5dd;
+  }
+  .content-input {
+    width: 100%; border: none; outline: none; background: transparent;
+    resize: vertical; min-height: 55vh; padding: 16px 0;
+    font-size: 16px; line-height: 1.9; color: #333; font-family: inherit;
+  }
+  /* ===== 登录弹窗 ===== */
+  .modal-wrap {
+    position: fixed; inset:0; background:rgba(0,0,0,0.4); display:flex; align-items:center; justify-content:center;
+    z-index:999;
+  }
+  .modal-box {
+    background:#fff; border-radius:12px; width:90%; max-width:420px; padding:24px;
+  }
+  .modal-box h2 { margin-bottom:16px; font-size:20px; color:#2d3436; }
+  .modal-box input {
+    width:100%; padding:10px 12px; margin:8px 0; border:1px solid #ddd; border-radius:8px; outline:none;
+  }
+  .modal-box .row { display:flex; gap:8px; }
+  .modal-box button {
+    width:100%; padding:10px; margin-top:8px; border:none; border-radius:8px; cursor:pointer; font-size:14px;
+  }
+  .btn-primary { background:#2d3436; color:#fff; }
+  .btn-secondary { background:#eee; color:#222; }
+  .tip { font-size:12px; color:#777; margin-top:8px; }
+  .user-bar { display:flex; gap:10px; align-items:center; }
+  .logout-btn { padding:7px 12px; background:#eee; border:none; border-radius:6px; cursor:pointer; }
+</style>
+</head>
+<body>
+<!-- ========== 登录弹窗 ========== -->
+<div id="loginModal" class="modal-wrap">
+  <div class="modal-box">
+    <h2>云记事本</h2>
+    <input id="phoneInput" placeholder="手机号" type="tel">
+    <input id="pwdInput" placeholder="密码" type="password">
+    <div class="row">
+      <input id="codeInput" placeholder="验证码">
+      <button id="sendCodeBtn" class="btn-secondary">获取验证码</button>
+    </div>
+    <button class="btn-primary" onclick="signUp()">注册账号</button>
+    <button class="btn-primary" onclick="signIn()">登录</button>
+    <button class="btn-secondary" onclick="localMode()">本地离线模式（不云端同步）</button>
+    <div class="tip">注册需要短信验证码，登录后笔记自动云端保存，跨设备查看</div>
+  </div>
+</div>
+
+<!-- ========== 页面一：列表页 ========== -->
+<div class="page active" id="pageList">
+  <div class="list-wrap">
+    <div class="list-header">
+      <h1>我的笔记</h1>
+      <div class="user-bar">
+        <span id="userInfo"></span>
+        <button class="logout-btn" id="logoutBtn" onclick="signOut()" hidden>退出登录</button>
+        <button class="new-btn" onclick="newNote()">＋ 新建笔记</button>
+      </div>
+    </div>
+    <input class="search" id="searchInput" placeholder="搜索笔记..." oninput="renderList()">
+    <div id="noteList"></div>
+    <div class="empty" id="emptyTip" hidden>暂无笔记，点「新建笔记」开始 ✍️</div>
+  </div>
+</div>
+<!-- ========== 页面二：编辑页（全屏） ========== -->
+<div class="page" id="pageEdit">
+  <div class="edit-toolbar">
+    <button class="back-btn" onclick="backToList()">← 返回</button>
+    <span class="save-status" id="saveStatus"></span>
+    <span class="char-count" id="charCount"></span>
+    <button class="del-btn" onclick="delNote()">删除</button>
+  </div>
+  <div class="edit-body">
+    <input class="title-input" id="titleInput" placeholder="标题" maxlength="60">
+    <textarea class="content-input" id="contentInput" placeholder="开始记录..."></textarea>
+  </div>
+</div>
+
+<script>
+// ========== 【替换为你自己的Supabase配置】 ==========
+const SUPABASE_URL = "https://ywzyufuhiqolshvarjkm.supabase.co";
+const SUPABASE_KEY = "PASTE_YOUR_ANON_KEY_HERE";
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+let notes = [];
+let currentId = null;
+let saveTimer = null;
+let user = null;
+let isLocalMode = false;
+const LOCAL_KEY = 'notepad2';
+
+// 初始化：检查登录状态
+async function init() {
+  const { data } = await supabase.auth.getSession();
+  if(data.session) {
+    user = data.session.user;
+    await loginSuccess();
+  } else {
+    document.getElementById('loginModal').style.display = 'flex';
+  }
+}
+
+// 本地离线模式（原有逻辑）
+function localMode() {
+  isLocalMode = true;
+  document.getElementById('loginModal').style.display = 'none';
+  notes = JSON.parse(localStorage.getItem(LOCAL_KEY) || 'null');
+  if (!notes) {
+    notes = [{
+      id: Date.now(),
+      title: '欢迎使用记事本',
+      content: '· 本地模式：笔记只保存在本机浏览器\n· 切换登录开启云端同步',
+      updated: new Date().toISOString()
+    }];
+    saveLocal();
+  }
+  renderList();
+}
+
+// 云端登录成功
+async function loginSuccess() {
+  document.getElementById('loginModal').style.display = 'none';
+  document.getElementById('userInfo').textContent = user.phone;
+  document.getElementById('logoutBtn').hidden = false;
+  await fetchCloudNotes();
+  renderList();
+}
+
+// 获取云端笔记
+async function fetchCloudNotes() {
+  const {data, error} = await supabase
+    .from('notes')
+    .select('*')
+    .order('updated_at', {ascending: false});
+  if(error) {
+    alert('拉取笔记失败：' + error.message);
+    return;
+  }
+  notes = data;
+}
+
+// 手机号注册
+async function signUp() {
+  const phone = document.getElementById('phoneInput').value.trim();
+  const password = document.getElementById('pwdInput').value.trim();
+  const code = document.getElementById('codeInput').value.trim();
+  const { data, error } = await supabase.auth.verifyOtp({
+    phone, token: code, type: 'sms', password
+  });
+  if(error) return alert(error.message);
+  user = data.session.user;
+  await loginSuccess();
+}
+
+// 手机号登录
+async function signIn() {
+  const phone = document.getElementById('phoneInput').value.trim();
+  const password = document.getElementById('pwdInput').value.trim();
+  const { data, error } = await supabase.auth.signInWithPassword({phone, password});
+  if(error) return alert(error.message);
+  user = data.session.user;
+  await loginSuccess();
+}
+
+// 发送验证码
+document.getElementById('sendCodeBtn').onclick = async ()=>{
+  const phone = document.getElementById('phoneInput').value.trim();
+  const {error} = await supabase.auth.signInWithOtp({phone});
+  if(error) alert(error.message);
+  else alert("验证码已发送");
+};
+
+// 退出登录
+async function signOut() {
+  await supabase.auth.signOut();
+  user = null;
+  notes = [];
+  document.getElementById('logoutBtn').hidden = true;
+  document.getElementById('userInfo').textContent = '';
+  document.getElementById('loginModal').style.display = 'flex';
+}
+
+// 本地保存函数
+function saveLocal() {
+  localStorage.setItem(LOCAL_KEY, JSON.stringify(notes));
+}
+
+function current() {
+  return notes.find(n => n.id === currentId);
+}
+function fmtTime(timeStr) {
+  const d = new Date(timeStr);
+  return d.toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+function showPage(id) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  window.scrollTo(0, 0);
+}
+
+/* ===== 列表页 ===== */
+function renderList() {
+  const keyword = document.getElementById('searchInput').value.trim();
+  const list = notes.filter(n => (n.title + '\n' + n.content).includes(keyword));
+  document.getElementById('emptyTip').hidden = list.length > 0;
+  document.getElementById('noteList').innerHTML = list.map(n => `
+    <div class="note-card" onclick="openNote(${n.id})">
+      <div class="info">
+        <div class="title"></div>
+        <div class="date">${fmtTime(n.updated_at || n.updated)}</div>
+      </div>
+      <button class="del" onclick="event.stopPropagation(); deleteNote(${n.id})">删除</button>
+    </div>
+  `).join('');
+  document.querySelectorAll('#noteList .title').forEach((el, i) => {
+    el.textContent = list[i].title || '（无标题）';
+  });
+}
+
+/* ===== 编辑页 ===== */
+async function openNote(id) {
+  currentId = id;
+  const n = current();
+  document.getElementById('titleInput').value = n.title;
+  document.getElementById('contentInput').value = n.content;
+  document.getElementById('saveStatus').textContent = '已保存 ' + fmtTime(n.updated_at || n.updated);
+  updateCount();
+  showPage('pageEdit');
+  setTimeout(() => document.getElementById('contentInput').focus(), 100);
+}
+
+async function newNote() {
+  if(isLocalMode){
+    const newId = Date.now();
+    const n = {
+      id: newId,
+      title: '',
+      content: '',
+      updated: new Date().toISOString()
+    };
+    notes.unshift(n);
+    saveLocal();
+    renderList();
+    openNote(newId);
+    return;
+  }
+  // 云端新建，数据库自动生成ID
+  const insertData = {
+    title: '',
+    content: '',
+    user_id: user.id
+  };
+  const {data,error} = await supabase.from('notes').insert(insertData).select().single();
+  if(error){
+    alert('新建笔记失败：'+error.message);
+    return;
+  }
+  notes.unshift(data);
+  renderList();
+  openNote(data.id);
+}
+
+async function backToList() {
+  clearTimeout(saveTimer);
+  await doSave();
+  currentId = null;
+  renderList();
+  showPage('pageList');
+}
+
+async function deleteNote(id) {
+  if (!confirm('确定删除这篇笔记吗？')) return;
+  notes = notes.filter(n => n.id !== id);
+  if(isLocalMode) {
+    saveLocal();
+  } else {
+    const {error} = await supabase.from('notes').delete().eq('id', id);
+    if(error) alert('删除失败：'+error.message);
+  }
+  renderList();
+}
+
+async function delNote() {
+  if (notes.length <= 1) return alert('至少保留一篇笔记！');
+  if (!confirm('确定删除这篇笔记吗？')) return;
+  await deleteNote(currentId);
+  backToList();
+}
+
+function updateCount() {
+  document.getElementById('charCount').textContent =
+    document.getElementById('contentInput').value.length + ' 字';
+}
+
+async function doSave() {
+  const n = current();
+  if (!n) return;
+  const title = document.getElementById('titleInput').value.trim();
+  const content = document.getElementById('contentInput').value;
+  if(isLocalMode){
+    n.title = title;
+    n.content = content;
+    n.updated = new Date().toISOString();
+    saveLocal();
+    document.getElementById('saveStatus').textContent = '已保存 ' + fmtTime(n.updated);
+    updateCount();
+    return;
+  }
+  // 云端更新，数据库触发器自动更新updated_at
+  const updateData = {title, content};
+  const {data,error} = await supabase.from('notes').update(updateData).eq('id',n.id).select().single();
+  if(error){
+    alert('云端保存失败：'+error.message);
+    return;
+  }
+  Object.assign(n, data);
+  document.getElementById('saveStatus').textContent = '已保存 ' + fmtTime(n.updated_at);
+  updateCount();
+}
+
+function scheduleSave() {
+  document.getElementById('saveStatus').textContent = '保存中…';
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(doSave, 500);
+}
+
+document.getElementById('titleInput').addEventListener('input', scheduleSave);
+document.getElementById('contentInput').addEventListener('input', scheduleSave);
+document.getElementById('titleInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') { e.preventDefault(); document.getElementById('contentInput').focus(); }
+});
+
+// 启动
+init();
+</script>
+</body>
+</html>
