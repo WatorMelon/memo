@@ -4,7 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>云记事本</title>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
@@ -87,6 +86,9 @@
     background:#fff; border-radius:12px; width:90%; max-width:420px; padding:24px;
   }
   .modal-box h2 { margin-bottom:16px; font-size:20px; color:#2d3436; }
+  .tab-bar { display:flex; gap:4px; margin-bottom:12px; }
+  .tab-btn { flex:1; padding:8px; border:1px solid #ddd; background:#f8f8f8; border-radius:6px; cursor:pointer; }
+  .tab-btn.active { background:#2d3436; color:#fff; border-color:#2d3436; }
   .modal-box input {
     width:100%; padding:10px 12px; margin:8px 0; border:1px solid #ddd; border-radius:8px; outline:none;
   }
@@ -104,12 +106,24 @@
 <div id="loginModal" class="modal-wrap">
   <div class="modal-box">
     <h2>云记事本</h2>
-    <input id="emailInput" placeholder="邮箱地址" type="email">
-    <input id="pwdInput" placeholder="密码（至少6位）" type="password">
-    <button class="btn-primary" onclick="handleSignUp()">注册账号</button>
-    <button class="btn-primary" onclick="handleSignIn()">邮箱登录</button>
-    <button class="btn-secondary" onclick="localMode()">本地离线模式（仅保存在浏览器）</button>
-    <div class="tip">注册后需要前往邮箱，点击验证链接激活账号，才能登录。<br>可在Supabase后台关闭邮箱验证，注册直接登录。</div>
+    <div class="tab-bar">
+      <button class="tab-btn active" onclick="switchTab('email')">邮箱账号</button>
+      <button class="tab-btn" onclick="switchTab('phone')">手机号账号</button>
+    </div>
+    <div id="panelEmail">
+      <input id="emailInput" placeholder="邮箱地址" type="email">
+      <input id="pwdInput" placeholder="密码（至少6位）" type="password">
+      <button class="btn-primary" onclick="loadSupabaseAndSignUpEmail()">注册账号</button>
+      <button class="btn-primary" onclick="loadSupabaseAndSignInEmail()">邮箱登录</button>
+    </div>
+    <div id="panelPhone" style="display:none;">
+      <input id="phoneInput" placeholder="手机号（11位国内号码）" type="tel">
+      <input id="phonePwdInput" placeholder="密码（至少6位）" type="password">
+      <button class="btn-primary" onclick="loadSupabaseAndSignUpPhone()">手机号注册（无需验证码）</button>
+      <button class="btn-primary" onclick="loadSupabaseAndSignInPhone()">手机号登录</button>
+    </div>
+    <button class="btn-secondary" onclick="localMode()">本地离线模式（仅保存在浏览器，无需网络）</button>
+    <div class="tip">本地模式不需要联网，笔记保存在当前浏览器。<br>手机号注册无需短信验证码，手机号保存在用户资料中。</div>
   </div>
 </div>
 
@@ -143,34 +157,31 @@
 </div>
 
 <script>
-const SUPABASE_URL = "https://ywzyufuhiqolshvarjkm.supabase.co";
-const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl3enl1ZnVoaXFvbHN2YXJqa20iLCJpYXQiOjE3OTA3NzU0OTAsImV4cCI6MjEwNjMxMTQ5MH0.akN_AyhpBLIGOCjt7yf0FWSBWl_VwsuLxNfkZIIpidQ";
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-
 let notes = [];
 let currentId = null;
 let saveTimer = null;
 let user = null;
 let isLocalMode = false;
+let supabase = null;
 const LOCAL_KEY = 'notepad_local';
+const SUPABASE_URL = "https://ywzyufuhiqolshvarjkm.supabase.co";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl3enl1ZnVoaXFvbHN2YXJqa20iLCJpYXQiOjE3OTA3NzU0OTAsImV4cCI6MjEwNjMxMTQ5MH0.akN_AyhpBLIGOCjt7yf0FWSBWl_VwsuLxNfkZIIpidQ";
 
-// 初始化
-async function init() {
-  try {
-    const { data: { session } } = await supabase.auth.getSession();
-    if(session) {
-      user = session.user;
-      await loginSuccess();
-    } else {
-      document.getElementById('loginModal').style.display = 'flex';
-    }
-  } catch(e) {
-    console.error('初始化错误', e);
-    alert('网络异常，可选择本地离线模式');
+// 切换登录Tab
+function switchTab(type){
+  const tabBtns = document.querySelectorAll('.tab-btn');
+  tabBtns.forEach(b=>b.classList.remove('active'));
+  event.target.classList.add('active');
+  if(type === 'email'){
+    document.getElementById('panelEmail').style.display='block';
+    document.getElementById('panelPhone').style.display='none';
+  }else{
+    document.getElementById('panelEmail').style.display='none';
+    document.getElementById('panelPhone').style.display='block';
   }
 }
 
-// 本地离线模式
+// ========== 本地模式（完全独立，不加载supabase） ==========
 function localMode() {
   isLocalMode = true;
   document.getElementById('loginModal').style.display = 'none';
@@ -181,73 +192,12 @@ function localMode() {
     notes = [{
       id: Date.now(),
       title: '欢迎使用记事本',
-      content: '✅ 本地模式：笔记保存在浏览器本地\n✅ 切换登录开启云端同步',
+      content: '✅ 本地模式：笔记保存在浏览器本地\n✅ 清除浏览器缓存会丢失笔记\n✅ 切换云端登录开启在线同步',
       updated_at: new Date().toISOString()
     }];
     saveLocal();
   }
   renderList();
-}
-
-async function loginSuccess() {
-  document.getElementById('loginModal').style.display = 'none';
-  document.getElementById('userInfo').textContent = user.email;
-  document.getElementById('logoutBtn').hidden = false;
-  await fetchCloudNotes();
-  renderList();
-}
-
-async function fetchCloudNotes() {
-  const {data, error} = await supabase
-    .from('notes')
-    .select('*')
-    .order('updated_at', {ascending: false});
-  if(error) {
-    console.error('拉取笔记失败', error);
-    alert('云端读取失败：' + error.message);
-    return;
-  }
-  notes = data;
-}
-
-// 邮箱注册
-async function handleSignUp() {
-  const email = document.getElementById('emailInput').value.trim();
-  const password = document.getElementById('pwdInput').value;
-  if(!email || password.length <6){
-    alert('邮箱不能为空，密码至少6位');
-    return;
-  }
-  const { error } = await supabase.auth.signUp({email, password});
-  if(error){
-    alert('注册失败：' + error.message);
-    return;
-  }
-  alert('注册成功！打开邮箱查收验证邮件，点击链接激活账号。');
-}
-
-// 邮箱登录
-async function handleSignIn() {
-  const email = document.getElementById('emailInput').value.trim();
-  const password = document.getElementById('pwdInput').value;
-  const { data, error } = await supabase.auth.signInWithPassword({email, password});
-  if(error){
-    alert('登录失败：' + error.message);
-    return;
-  }
-  user = data.session.user;
-  await loginSuccess();
-}
-
-// 退出登录
-async function signOut() {
-  await supabase.auth.signOut();
-  user = null;
-  notes = [];
-  isLocalMode = false;
-  document.getElementById('logoutBtn').hidden = true;
-  document.getElementById('userInfo').textContent = '';
-  document.getElementById('loginModal').style.display = 'flex';
 }
 
 function saveLocal() {
@@ -401,11 +351,145 @@ function scheduleAutoSave() {
   saveTimer = setTimeout(saveNoteNow, 500);
 }
 
+// ========== 云端SDK加载 ==========
+async function loadSupabaseSDK(){
+  if(supabase) return;
+  await new Promise((resolve,reject)=>{
+    const script = document.createElement('script');
+    script.src = "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2";
+    script.onload = resolve;
+    script.onerror = reject;
+    document.head.appendChild(script);
+  })
+  supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+}
+
+// ========== 邮箱注册登录 ==========
+async function loadSupabaseAndSignUpEmail() {
+  await loadSupabaseSDK();
+  const email = document.getElementById('emailInput').value.trim();
+  const password = document.getElementById('pwdInput').value;
+  if(!email || password.length <6){
+    alert('邮箱不能为空，密码至少6位');
+    return;
+  }
+  const { error } = await supabase.auth.signUp({email, password});
+  if(error){
+    alert('注册失败：' + error.message);
+    return;
+  }
+  alert('邮箱注册成功！如开启邮箱验证，请打开邮箱激活账号。');
+}
+async function loadSupabaseAndSignInEmail() {
+  await loadSupabaseSDK();
+  const email = document.getElementById('emailInput').value.trim();
+  const password = document.getElementById('pwdInput').value;
+  const { data, error } = await supabase.auth.signInWithPassword({email, password});
+  if(error){
+    alert('登录失败：' + error.message);
+    return;
+  }
+  user = data.session.user;
+  await loginSuccess();
+}
+
+// ========== 手机号注册登录（无需短信验证码） ==========
+async function loadSupabaseAndSignUpPhone() {
+  await loadSupabaseSDK();
+  const phone = document.getElementById('phoneInput').value.trim();
+  const password = document.getElementById('phonePwdInput').value;
+  const reg = /^1[3-9]\d{9}$/;
+  if(!reg.test(phone)){
+    alert('请输入合法11位手机号');
+    return;
+  }
+  if(password.length <6){
+    alert('密码至少6位');
+    return;
+  }
+  // 虚拟邮箱：手机号@fake.local
+  const fakeEmail = `${phone}@fake.local`;
+  const { error } = await supabase.auth.signUp({
+    email: fakeEmail,
+    password,
+    options:{
+      data:{
+        phone: phone
+      }
+    }
+  });
+  if(error){
+    alert('手机号注册失败：' + error.message);
+    return;
+  }
+  alert('手机号注册成功！无需短信验证码。\n登录直接填入手机号+密码即可。');
+}
+
+async function loadSupabaseAndSignInPhone() {
+  await loadSupabaseSDK();
+  const phone = document.getElementById('phoneInput').value.trim();
+  const password = document.getElementById('phonePwdInput').value;
+  const reg = /^1[3-9]\d{9}$/;
+  if(!reg.test(phone)){
+    alert('请输入合法11位手机号');
+    return;
+  }
+  if(password.length <6){
+    alert('密码至少6位');
+    return;
+  }
+  const fakeEmail = `${phone}@fake.local`;
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email: fakeEmail,
+    password
+  });
+  if(error){
+    alert('手机号登录失败：' + error.message);
+    return;
+  }
+  user = data.session.user;
+  await loginSuccess();
+}
+
+async function loginSuccess() {
+  document.getElementById('loginModal').style.display = 'none';
+  // 优先展示手机号，没有则展示邮箱
+  const phoneMeta = user.user_metadata?.phone;
+  if(phoneMeta){
+    document.getElementById('userInfo').textContent = `手机号：${phoneMeta}`;
+  }else{
+    document.getElementById('userInfo').textContent = user.email;
+  }
+  document.getElementById('logoutBtn').hidden = false;
+  await fetchCloudNotes();
+  renderList();
+}
+
+async function fetchCloudNotes() {
+  const {data, error} = await supabase
+    .from('notes')
+    .select('*')
+    .order('updated_at', {ascending: false});
+  if(error) {
+    console.error('拉取笔记失败', error);
+    alert('云端读取失败：' + error.message);
+    return;
+  }
+  notes = data;
+}
+
+async function signOut() {
+  await supabase.auth.signOut();
+  user = null;
+  notes = [];
+  isLocalMode = false;
+  document.getElementById('logoutBtn').hidden = true;
+  document.getElementById('userInfo').textContent = '';
+  document.getElementById('loginModal').style.display = 'flex';
+}
+
 document.getElementById('titleInput').addEventListener('input', scheduleAutoSave);
 document.getElementById('contentInput').addEventListener('input', scheduleAutoSave);
-
-// 启动
-init();
 </script>
 </body>
 </html>
