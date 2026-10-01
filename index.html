@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>云记事本</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: "Microsoft YaHei", sans-serif;
+    background: #f5f5f0;
+    min-height: 100vh;
+  }
+  .page { display: none; min-height: 100vh; animation: fadeIn .25s ease-out; }
+  .page.active { display: block; }
+  @keyframes fadeIn { from { opacity:0; transform: translateY(8px); } to { opacity:1; transform: translateY(0); } }
+
+  .list-wrap { max-width: 640px; margin: 0 auto; padding: 32px 20px; }
+  .list-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap:wrap; gap:10px; }
+  .list-header h1 { font-size: 22px; color: #2d3436; }
+  .new-btn {
+    padding: 9px 18px; background: #2d3436; color: #fff;
+    border: none; border-radius: 8px; cursor: pointer; font-size: 14px;
+  }
+  .new-btn:hover { background: #495057; }
+  .search {
+    width: 100%; padding: 10px 14px; margin-bottom: 16px;
+    border: 1px solid #ddd; border-radius: 8px; outline: none;
+    background: #fff; font-size:14px;
+  }
+  .search:focus { border-color: #2d3436; }
+  .note-card {
+    background: #fff; border: 1px solid #e5e5dd; border-radius: 8px;
+    padding: 14px 16px; margin-bottom:10px; cursor: pointer;
+    display: flex; justify-content: space-between; align-items: center; gap:10px;
+    transition: box-shadow .15s;
+  }
+  .note-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,.08); }
+  .note-card .info { min-width:0; }
+  .note-card .title {
+    font-size:15px; font-weight:bold; color:#2d3436;
+    white-space: nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  .note-card .date { font-size:12px; color:#999; margin-top:4px; }
+  .note-card .del {
+    flex:none; padding:5px 12px; background:#e74c3c; color:#fff;
+    border:none; border-radius:6px; cursor:pointer; font-size:12px;
+  }
+  .empty { text-align:center; color:#aaa; padding:60px 0; }
+
+  .edit-toolbar {
+    display:flex; align-items:center; gap:12px;
+    padding:12px 20px; background:#fff; border-bottom:1px solid #ddd;
+    position:sticky; top:0;
+  }
+  .back-btn {
+    padding:7px 16px; background:#f0f0ea; color:#2d3436;
+    border:none; border-radius:8px; cursor:pointer; font-size:14px;
+  }
+  .back-btn:hover { background:#e2e2da; }
+  .save-status { flex:1; font-size:12px; color:#999; }
+  .char-count { font-size:12px; color:#bbb; }
+  .del-btn {
+    padding:7px 14px; background:#e74c3c; color:#fff;
+    border:none; border-radius:8px; cursor:pointer; font-size:13px;
+  }
+  .del-btn:hover { background:#c0392b; }
+  .edit-body { max-width:760px; margin:0 auto; padding:24px 24px 60px; }
+  .title-input {
+    width:100%; border:none; outline:none; background:transparent;
+    font-size:26px; font-weight:bold; color:#2d3436;
+    padding:8px 0 12px; font-family:inherit;
+    border-bottom:1px solid #e5e5dd;
+  }
+  .content-input {
+    width:100%; border:none; outline:none; background:transparent;
+    resize:vertical; min-height:55vh; padding:16px 0;
+    font-size:16px; line-height:1.9; color:#333; font-family:inherit;
+  }
+
+  .modal-wrap {
+    position:fixed; inset:0; background:rgba(0,0,0,0.4); display:flex; align-items:center; justify-content:center;
+    z-index:999;
+  }
+  .modal-box {
+    background:#fff; border-radius:12px; width:90%; max-width:420px; padding:24px;
+  }
+  .modal-box h2 { margin-bottom:16px; font-size:20px; color:#2d3436; }
+  .modal-box input {
+    width:100%; padding:10px 12px; margin:8px 0; border:1px solid #ddd; border-radius:8px; outline:none;
+  }
+  .modal-box input:focus { border-color:#2d3436; }
+  .modal-box button {
+    width:100%; padding:10px; margin-top:8px; border:none; border-radius:8px; cursor:pointer; font-size:14px;
+  }
+  .btn-primary { background:#2d3436; color:#fff; }
+  .btn-primary:hover { background:#495057; }
+  .btn-secondary { background:#eee; color:#222; }
+  .btn-secondary:hover { background:#e0e0da; }
+  .tip { font-size:12px; color:#777; margin-top:10px; line-height:1.6; }
+  .tip.warn { color:#b3541e; }
+  .user-bar { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+  #userInfo { font-size:13px; color:#666; max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .logout-btn { padding:7px 12px; background:#eee; border:none; border-radius:6px; cursor:pointer; font-size:13px; }
+  .logout-btn:hover { background:#e0e0da; }
+  .boot-box { text-align:center; color:#666; }
+  .spinner {
+    width:30px; height:30px; margin:0 auto 12px; border:3px solid #e0e0da;
+    border-top-color:#2d3436; border-radius:50%; animation:spin .8s linear infinite;
+  }
+  @keyframes spin { to { transform:rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<div id="bootMask" class="modal-wrap">
+  <div class="modal-box boot-box">
+    <div class="spinner"></div>
+    正在恢复登录状态…
+  </div>
+</div>
+
+<div id="loginModal" class="modal-wrap" style="display:none;">
+  <div class="modal-box">
+    <h2>☁️ 云记事本</h2>
+    <input id="nickInput" placeholder="昵称（2–20 位：中文 / 字母 / 数字 / _ -）" type="text" autocomplete="username" maxlength="20">
+    <input id="pwdInput" placeholder="密码（至少 6 位）" type="password" autocomplete="current-password">
+    <button class="btn-primary" onclick="doLogin()">登 录</button>
+    <button class="btn-secondary" onclick="doSignup()">注册账号</button>
+    <button class="btn-secondary" onclick="localMode()">本地离线模式（不联网，仅保存在此浏览器）</button>
+    <div class="tip" id="authTip">只需<b>昵称 + 密码</b>，无需邮箱。登录后笔记保存在云端，<b>在任意设备登录同一昵称即可查看</b>。<br>新用户先点「注册账号」。</div>
+  </div>
+</div>
+
+<div class="page active" id="pageList">
+  <div class="list-wrap">
+    <div class="list-header">
+      <h1>我的笔记</h1>
+      <div class="user-bar">
+        <span id="userInfo"></span>
+        <button class="logout-btn" id="logoutBtn" onclick="signOut()" hidden>退出登录</button>
+        <button class="new-btn" onclick="newNote()">＋ 新建笔记</button>
+      </div>
+    </div>
+    <input class="search" id="searchInput" placeholder="搜索笔记..." oninput="renderList()">
+    <div id="noteList"></div>
+    <div class="empty" id="emptyTip" hidden>暂无笔记，点「新建笔记」开始 ✍️</div>
+  </div>
+</div>
+
+<div class="page" id="pageEdit">
+  <div class="edit-toolbar">
+    <button class="back-btn" onclick="backToList()">← 返回</button>
+    <span class="save-status" id="saveStatus"></span>
+    <span class="char-count" id="charCount"></span>
+    <button class="del-btn" onclick="deleteCurrentNote()">删除</button>
+  </div>
+  <div class="edit-body">
+    <input class="title-input" id="titleInput" placeholder="标题" maxlength="60">
+    <textarea class="content-input" id="contentInput" placeholder="开始记录..."></textarea>
+  </div>
+</div>
+
+<script>
+// ==================== 配置 ====================
+const SUPABASE_URL = "https://ywzyufuhiqolshvarjkm.supabase.co";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl3enl1ZnVoaXFvbHNodmFyamttIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA3NzU0OTAsImV4cCI6MjEwNjM1MTQ5MH0.akN_AyhpBLIGOCjt7yf0FWSBWl_VwsuLxNfkZIIpidQ";
+const LOCAL_KEY = 'notepad_local_notes';      // 本地模式笔记
+const MIGRATE_KEY = 'notepad_local_migrated'; // 本地笔记是否已迁移云端
+const NICK_DOMAIN = 'memo.local';             // 昵称映射成合成邮箱所用的固定域名（不发邮件）
+// 昵称：2–20 位，允许中文、英文字母、数字、下划线、连字符
+const NICKNAME_RE = /^[一-龥a-zA-Z0-9_-]{2,20}$/;
+
+let notes = [];
+let currentId = null;
+let saveTimer = null;
+let user = null;
+let isLocalMode = false;
+let client = null;
+
+// ==================== Supabase 客户端 ====================
+// 动态加载 SDK，unpkg 失败时自动切换 jsdelivr
+function loadSupabaseSDK() {
+  return new Promise((resolve, reject) => {
+    if (window.supabase && window.supabase.createClient) return resolve(window.supabase);
+    const cdns = [
+      "https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js",
+      "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"
+    ];
+    let i = 0;
+    const loadNext = () => {
+      const s = document.createElement('script');
+      s.src = cdns[i];
+      s.onload = () => window.supabase && window.supabase.createClient
+        ? resolve(window.supabase)
+        : reject(new Error('SDK 加载异常'));
+      s.onerror = () => {
+        i++;
+        i < cdns.length ? loadNext() : reject(new Error('SDK 加载失败（网络不通）'));
+      };
+      document.head.appendChild(s);
+    };
+    loadNext();
+  });
+}
+
+async function ensureClient() {
+  if (client) return client;
+  const lib = await loadSupabaseSDK();
+  client = lib.createClient(SUPABASE_URL, SUPABASE_KEY, {
+    auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
+  });
+  return client;
+}
+
+// ==================== 昵称 → 合成邮箱映射 ====================
+// Supabase Auth 只接受邮箱/手机登录，因此把昵称确定性地映射成一个内部合成邮箱。
+// 昵称是固定登录名（不支持改名），所以映射始终稳定，唯一性由 Auth 保证。
+// 纯英数昵称直接用小写昵称；含中文等非邮箱安全字符时用确定性哈希。
+function cyrb53(str) {
+  let h1 = 0xdeadbeef, h2 = 0x41c6ce57;
+  for (let i = 0; i < str.length; i++) {
+    const ch = str.charCodeAt(i);
+    h1 = Math.imul(h1 ^ ch, 2654435761);
+    h2 = Math.imul(h2 ^ ch, 1597334677);
+  }
+  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+  h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+  return (BigInt(h2 >>> 0).toString(16).padStart(8, '0') + BigInt(h1 >>> 0).toString(16).padStart(8, '0'));
+}
+
+function normalizeNick(nick) {
+  return nick.trim().toLowerCase();
+}
+
+function nickToEmail(nick) {
+  const n = normalizeNick(nick);
+  if (/^[a-z0-9_-]+$/.test(n)) return n + '@' + NICK_DOMAIN;
+  return 'u' + cyrb53(n) + '@' + NICK_DOMAIN;
+}
+
+function displayNameOf(u) {
+  const meta = u && u.user_metadata;
+  if (meta && meta.nickname) return meta.nickname;
+  // 老会话兜底：从合成邮箱反推（英文昵称）
+  if (u && u.email) return String(u.email).split('@')[0];
+  return '已登录';
+}
+
+// 后台仍开启“注册需邮箱验证”时给出明确引导
+const CONFIRM_HINT = '⚠️ 当前云端还开着“邮箱验证”，昵称注册无法收到验证邮件。<br>' +
+  '请打开 <b>Supabase 控制台 → Authentication → Providers → Email</b>，' +
+  '关闭 <b>Confirm email</b> 开关后回到本页重新注册（无需改其他任何设置）。';
+
+// ==================== 启动流程 ====================
+async function boot() {
+  try {
+    const sb = await ensureClient();
+
+    // 自动恢复上次登录态（Supabase 会话持久化在浏览器中）
+    const { data } = await sb.auth.getSession();
+    if (data.session) {
+      await enterCloud(data.session.user);
+    } else {
+      showLoginUI();
+    }
+
+    // 监听登录态变化（如在别处登录/令牌刷新）
+    sb.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN' && session && (!user || user.id !== session.user.id)) {
+        enterCloud(session.user);
+      }
+    });
+  } catch (e) {
+    showLoginUI();
+    setAuthTip('⚠️ 云端连接失败（' + e.message + '）。可先用「本地离线模式」，联网后刷新页面再登录。', true);
+  } finally {
+    document.getElementById('bootMask').style.display = 'none';
+  }
+}
+
+function showLoginUI() {
+  document.getElementById('bootMask').style.display = 'none';
+  document.getElementById('loginModal').style.display = 'flex';
+  setTimeout(() => document.getElementById('nickInput').focus(), 50);
+}
+
+function setAuthTip(msg, warn) {
+  const el = document.getElementById('authTip');
+  el.innerHTML = msg;
+  el.className = 'tip' + (warn ? ' warn' : '');
+}
+
+// 登录成功后的统一入口
+async function enterCloud(u) {
+  if (user && user.id === u.id) return;
+  user = u;
+  isLocalMode = false;
+  document.getElementById('loginModal').style.display = 'none';
+  document.getElementById('bootMask').style.display = 'none';
+  document.getElementById('userInfo').textContent = displayNameOf(u);
+  document.getElementById('logoutBtn').hidden = false;
+
+  await migrateLocalNotes();
+  try {
+    await fetchCloudNotes();
+  } catch (e) {
+    alert('读取云端笔记失败：' + e.message);
+  }
+  renderList();
+}
+
+// 首次登录时，把本浏览器已有的本地笔记一次性迁移到云端
+async function migrateLocalNotes() {
+  try {
+    if (localStorage.getItem(MIGRATE_KEY)) return;
+    localStorage.setItem(MIGRATE_KEY, '1');
+    const raw = localStorage.getItem(LOCAL_KEY);
+    if (!raw) return;
+    const local = JSON.parse(raw);
+    const rows = local
+      .filter(n => (n.title && n.title.trim()) || (n.content && n.content.trim()))
+      .map((n, i) => ({
+        id: Date.now() * 1000 + i, // 避开云端 Date.now() 毫秒级 ID
+        title: n.title || '（迁移笔记）',
+        content: n.content || '',
+        user_id: user.id,
+        updated_at: n.updated_at || new Date().toISOString()
+      }));
+    if (!rows.length) return;
+    const { error } = await client.from('notes').insert(rows);
+    if (!error) alert('已将本浏览器中的 ' + rows.length + ' 条本地笔记同步到云端 ✅');
+  } catch (e) { /* 迁移失败不阻塞登录 */ }
+}
+
+// ==================== 注册 / 登录 / 退出 ====================
+function readForm() {
+  const nickname = document.getElementById('nickInput').value.trim();
+  const password = document.getElementById('pwdInput').value;
+  return { nickname, password };
+}
+
+function validateForm(nickname, password) {
+  if (!NICKNAME_RE.test(nickname)) {
+    setAuthTip('昵称为 2–20 位，只能包含中文、字母、数字、下划线 _ 或连字符 -。', true);
+    return false;
+  }
+  if (password.length < 6) { setAuthTip('密码至少 6 位。', true); return false; }
+  return true;
+}
+
+async function doSignup() {
+  let sb;
+  try { sb = await ensureClient(); }
+  catch (e) { setAuthTip('云端组件加载失败，请检查网络后刷新页面重试。', true); return; }
+
+  const { nickname, password } = readForm();
+  if (!validateForm(nickname, password)) return;
+  const email = nickToEmail(nickname);
+
+  const { data, error } = await sb.auth.signUp({
+    email,
+    password,
+    options: { data: { nickname } }
+  });
+  if (error) {
+    const m = error.message || '';
+    if (/already registered|already been registered|user already/i.test(m)) {
+      setAuthTip('昵称 <b>' + escapeHtml(nickname) + '</b> 已被注册（不区分大小写），请换一个，或直接用它登录。', true);
+    } else if (/rate ?limit|too many/i.test(m)) {
+      setAuthTip('操作太频繁，请约 1 分钟后再试。', true);
+    } else {
+      setAuthTip('注册失败：' + m, true);
+    }
+    return;
+  }
+  // 部分版本对重复昵称不报错而返回空 identities
+  if (data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+    setAuthTip('昵称 <b>' + escapeHtml(nickname) + '</b> 已被注册（不区分大小写），请换一个，或直接用它登录。', true);
+    return;
+  }
+  if (data.session) {
+    // 后台已关闭“邮箱验证”：注册即登录
+    await enterCloud(data.session.user);
+    return;
+  }
+  // 后台仍开启邮箱验证：合成邮箱无法收信，引导关闭后重试
+  setAuthTip(CONFIRM_HINT, true);
+}
+
+async function doLogin() {
+  let sb;
+  try { sb = await ensureClient(); }
+  catch (e) { setAuthTip('云端组件加载失败，请检查网络后刷新页面重试。', true); return; }
+
+  const { nickname, password } = readForm();
+  if (!nickname || !password) { setAuthTip('请输入昵称和密码。', true); return; }
+  if (!NICKNAME_RE.test(nickname)) { setAuthTip('昵称格式不正确。', true); return; }
+
+  const { data, error } = await sb.auth.signInWithPassword({
+    email: nickToEmail(nickname),
+    password
+  });
+  if (error) {
+    const m = error.message || '';
+    if (/not confirmed|email not confirmed/i.test(m)) {
+      setAuthTip(CONFIRM_HINT, true);
+    } else if (/invalid/i.test(m)) {
+      setAuthTip('昵称或密码不正确，请重试。新用户请先点「注册账号」。', true);
+    } else if (/rate ?limit|too many/i.test(m)) {
+      setAuthTip('尝试太频繁，请稍后再试。', true);
+    } else {
+      setAuthTip('登录失败：' + m, true);
+    }
+    return;
+  }
+  await enterCloud(data.user);
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  }[c]));
+}
+
+async function signOut() {
+  if (client) { try { await client.auth.signOut(); } catch (e) {} }
+  user = null;
+  notes = [];
+  currentId = null;
+  isLocalMode = false;
+  document.getElementById('logoutBtn').hidden = true;
+  document.getElementById('userInfo').textContent = '';
+  document.getElementById('searchInput').value = '';
+  showLoginUI();
+  renderList();
+}
+
+// ==================== 本地离线模式 ====================
+function localMode() {
+  isLocalMode = true;
+  user = null;
+  document.getElementById('loginModal').style.display = 'none';
+  document.getElementById('bootMask').style.display = 'none';
+  document.getElementById('logoutBtn').hidden = true;
+  document.getElementById('userInfo').textContent = '本地模式';
+  const raw = localStorage.getItem(LOCAL_KEY);
+  if (raw) {
+    notes = JSON.parse(raw);
+  } else {
+    notes = [{
+      id: Date.now(),
+      title: '欢迎使用记事本',
+      content: '✅ 本地模式：笔记保存在浏览器本地\n✅ 清除浏览器缓存会丢失笔记\n✅ 刷新页面后点「注册账号」，用昵称+密码创建云端账号\n✅ 登录后本地笔记会自动迁移到云端，任意设备可见',
+      updated_at: new Date().toISOString()
+    }];
+    saveLocal();
+  }
+  renderList();
+}
+
+function saveLocal() {
+  localStorage.setItem(LOCAL_KEY, JSON.stringify(notes));
+}
+
+// ==================== 笔记业务 ====================
+function getCurrentNote() {
+  return notes.find(n => n.id === currentId);
+}
+
+function esc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  }[c]));
+}
+
+function formatTime(timeStr) {
+  if (!timeStr) return '';
+  const d = new Date(timeStr);
+  if (isNaN(d.getTime())) return '';
+  return `${d.getMonth()+1}月${d.getDate()}日 ${d.getHours()}:${String(d.getMinutes()).padStart(2,'0')}`;
+}
+
+function showPage(pageId) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById(pageId).classList.add('active');
+  window.scrollTo(0,0);
+}
+
+function isOnListPage() {
+  return document.getElementById('pageList').classList.contains('active');
+}
+
+// 渲染笔记列表
+function renderList() {
+  const kw = document.getElementById('searchInput').value.trim().toLowerCase();
+  const filtered = notes.filter(n => {
+    const text = (n.title + n.content).toLowerCase();
+    return text.includes(kw);
+  });
+  document.getElementById('emptyTip').hidden = filtered.length > 0;
+  const container = document.getElementById('noteList');
+  container.innerHTML = '';
+  filtered.forEach(note => {
+    const div = document.createElement('div');
+    div.className = 'note-card';
+    div.onclick = () => openNote(note.id);
+    div.innerHTML = `
+      <div class="info">
+        <div class="title">${esc(note.title) || '无标题'}</div>
+        <div class="date">${formatTime(note.updated_at)}</div>
+      </div>
+      <button class="del" onclick="event.stopPropagation(); deleteNote(${Number(note.id)})">删除</button>
+    `;
+    container.appendChild(div);
+  });
+}
+
+async function openNote(id) {
+  currentId = id;
+  const n = getCurrentNote();
+  if (!n) return;
+  document.getElementById('titleInput').value = n.title || '';
+  document.getElementById('contentInput').value = n.content || '';
+  document.getElementById('saveStatus').textContent = '已保存 ' + formatTime(n.updated_at);
+  updateCharCount();
+  showPage('pageEdit');
+}
+
+async function newNote() {
+  const nowIso = new Date().toISOString();
+  if (isLocalMode) {
+    const newNoteObj = { id: Date.now(), title: '', content: '', updated_at: nowIso };
+    notes.unshift(newNoteObj);
+    saveLocal();
+    openEditorFor(newNoteObj.id);
+    return;
+  }
+
+  if (!user) { showLoginUI(); return; }
+  const id = Date.now();
+  const row = { id, title: '', content: '', user_id: user.id, updated_at: nowIso };
+  const { data, error } = await client.from('notes').insert(row).select().single();
+  if (error) {
+    if (String(error.code) === '42501') {
+      alert('云端保存被拒绝：notes 表缺少访问策略（RLS）。\n请在 Supabase 控制台的 SQL Editor 执行建表/授权语句（联系站点维护者获取）。');
+    } else {
+      alert('新建笔记失败：' + error.message);
+    }
+    return;
+  }
+  notes.unshift(data);
+  openEditorFor(id);
+}
+
+function openEditorFor(id) {
+  currentId = id;
+  document.getElementById('titleInput').value = '';
+  document.getElementById('contentInput').value = '';
+  document.getElementById('saveStatus').textContent = '';
+  updateCharCount();
+  showPage('pageEdit');
+  document.getElementById('titleInput').focus();
+}
+
+async function backToList() {
+  clearTimeout(saveTimer);
+  await saveNoteNow();
+  currentId = null;
+  // 回到列表时拉取云端最新内容（便于多设备同步）
+  if (!isLocalMode && user) {
+    try { await fetchCloudNotes(); } catch (e) {}
+  }
+  renderList();
+  showPage('pageList');
+}
+
+async function deleteNote(id) {
+  if (!confirm('确定删除这条笔记？')) return;
+  notes = notes.filter(n => n.id !== id);
+  if (isLocalMode) {
+    saveLocal();
+  } else if (user) {
+    const { error } = await client.from('notes').delete()
+      .eq('id', id).eq('user_id', user.id);
+    if (error) alert('删除失败：' + error.message);
+  }
+  renderList();
+}
+
+async function deleteCurrentNote() {
+  if (!currentId) return;
+  if (!confirm('确定删除当前笔记？')) return;
+  await deleteNote(currentId);
+  backToList();
+}
+
+function updateCharCount() {
+  const content = document.getElementById('contentInput').value;
+  document.getElementById('charCount').textContent = `${content.length} 字`;
+}
+
+async function saveNoteNow() {
+  const n = getCurrentNote();
+  if (!n) return;
+  const title = document.getElementById('titleInput').value.trim();
+  const content = document.getElementById('contentInput').value;
+  n.title = title;
+  n.content = content;
+  n.updated_at = new Date().toISOString();
+
+  if (isLocalMode) {
+    saveLocal();
+    document.getElementById('saveStatus').textContent = '已保存 ' + formatTime(n.updated_at);
+    return;
+  }
+  if (!user) return;
+  const { error } = await client.from('notes')
+    .update({ title, content, updated_at: n.updated_at })
+    .eq('id', n.id).eq('user_id', user.id);
+  if (error) {
+    document.getElementById('saveStatus').textContent = '保存失败';
+    alert('云端保存失败：' + error.message);
+    return;
+  }
+  document.getElementById('saveStatus').textContent = '已保存 ' + formatTime(n.updated_at);
+}
+
+function scheduleAutoSave() {
+  document.getElementById('saveStatus').textContent = '保存中…';
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(saveNoteNow, 500);
+}
+
+async function fetchCloudNotes() {
+  if (!user) throw new Error('未登录');
+  const { data, error } = await client
+    .from('notes')
+    .select('*')
+    .eq('user_id', user.id)
+    .order('updated_at', { ascending: false });
+  if (error) throw error;
+  notes = data || [];
+}
+
+// ==================== 事件绑定 ====================
+document.getElementById('titleInput').addEventListener('input', scheduleAutoSave);
+document.getElementById('contentInput').addEventListener('input', () => {
+  scheduleAutoSave();
+  updateCharCount();
+});
+// 回车直接登录
+['nickInput', 'pwdInput'].forEach(id => {
+  document.getElementById(id).addEventListener('keydown', e => {
+    if (e.key === 'Enter') doLogin();
+  });
+});
+// 切回页面（如另一台设备刚改过）时静默刷新云端列表
+document.addEventListener('visibilitychange', async () => {
+  if (!document.hidden && !isLocalMode && user && isOnListPage()) {
+    try { await fetchCloudNotes(); renderList(); } catch (e) {}
+  }
+});
+
+updateCharCount();
+boot();
+</script>
+</body>
+</html>
