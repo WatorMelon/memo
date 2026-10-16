@@ -1,0 +1,100 @@
+
+      <input id="phoneInput" type="tel" inputmode="numeric" maxlength="11" placeholder="请输入 11 位手机号">
+    </div>
+    <div class="field">
+      <label>密码</label>
+      <input id="passwordInput" type="password" placeholder="请输入密码（至少 6 位）">
+    </div>
+    <div class="field" id="confirmField" style="display:none;">
+      <label>确认密码</label>
+      <input id="confirmInput" type="password" placeholder="请再次输入密码">
+    </div>
+
+    <button class="btn" id="authBtn" onclick="submitAuth()">登录</button>
+    <p class="hint">密码经 Firebase 安全存储，仅用于登录验证<br>不同设备登录同一账号，笔记自动同步</p>
+    <p class="hint">密码加密存储，仅用于登录验证<br>不同设备登录同一账号，笔记自动同步</p>
+  </div>
+</div>
+
+<!-- ========== 主界面 ========== -->
+<div class="container" id="appScreen" style="display:none;">
+  <div class="topbar">
+    <h1>📝 我的记事本</h1>
+    <div class="userbox">
+      <button class="nickname-chip" onclick="openNicknameModal()" title="点击修改昵称">
+        <span id="nickDisplay">—</span> ✏️
+      </button>
+      <div class="avatar" id="avatarEl">?</div>
+      <input id="nickInput" placeholder="输入一个昵称吧" maxlength="20">
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="nickCancelBtn" style="display:none;" onclick="closeNicknameModal()">取消</button>
+      <button class="btn" onclick="saveNickname()">保存</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<div class="loading-mask" id="loadingMask"><div class="spinner"></div></div>
+
+<!-- ================= Firebase 配置（部署前必改） ================= -->
+<script type="module">
+<!-- ================= LeanCloud 配置（部署前必改） ================= -->
+<script>
+// ⬇⬇⬇⬇⬇⬇⬇⬇⬇⬇⬇⬇⬇⬇⬇⬇⬇⬇⬇⬇⬇⬇⬇⬇⬇⬇⬇⬇⬇⬇
+//  第一步：打开 https://console.firebase.google.com
+//  1. 添加项目（名字随便，如 notepad）
+//  2. 「构建 → Firestore Database → 创建数据库」，位置选离你近的，模式选「测试模式」
+//  3. 「项目设置 → 常规 → 你的应用」选 Web（</> 图标），注册应用后会得到下面这段配置
+//  4. 把下方 firebaseConfig 的六个值替换成你自己的
+//  5. 「认证 → 登录方式 → 启用「邮箱/密码」」
+//  6. 部署到 GitHub Pages 后，回到控制台「Firestore → 规则」，把默认规则换成下面注释里的安全规则
+//  第一步：注册 LeanCloud（国内版，大陆直连可用）
+//  1. 打开 https://leancloud.cn 注册账号，并按控制台提示完成实名认证
+//  2. 打开 https://console.leancloud.cn →「创建应用」→ 选「国内版」→ 套餐选「免费版」
+//  3. 进入应用 →「设置 → 应用Keys」→ 复制 App ID 和 JS Key，替换下面两个值
+//  4. 「数据存储」→ Note 类 → 权限：设为「指定用户可读写」
+//  5. 其余保持默认，部署到 GitHub Pages 后即可使用
+// ⬆⬆⬆⬆⬆⬆⬆⬆⬆⬆⬆⬆⬆⬆⬆⬆⬆⬆⬆⬆⬆⬆⬆⬆⬆⬆⬆⬆⬆⬆
+const firebaseConfig = {
+  apiKey: "AIzaSyDtzmQhjYkjTk_xWkRvSLglg811VMO4Rss",
+  authDomain: "memo-8f803.firebaseapp.com",
+  projectId: "memo-8f803",
+  storageBucket: "memo-8f803.firebasestorage.app",
+  messagingSenderId: "177925733531",
+  appId: "1:177925733531:web:6e1ca3ea301db40347da3e"
+const leanConfig = {
+  appId: "在这里粘贴 App ID",
+  jsKey: "在这里粘贴 JS Key"
+};
+
+/* 部署稳定后，把 Firestore「规则」标签页内容换成：
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /users/{uid} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
+    match /notes/{noteId} {
+      allow read: if request.auth != null && request.auth.uid == resource.data.ownerId;
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.ownerId;
+      allow update, delete: if request.auth != null && request.auth.uid == resource.data.ownerId;
+    }
+  }
+}
+*/
+// ================= 以下为应用逻辑，一般不需要改 =================
+
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import {
+  getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import {
+  getFirestore, collection, addDoc, updateDoc, deleteDoc, doc,
+  query, where, orderBy, onSnapshot, serverTimestamp, setDoc, getDoc
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+const LC = 'https://api.leancloud.cn/1.1';
